@@ -29,11 +29,11 @@ export const AgentChat: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
+ const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: 'welcome-1',
+      id: 'msg-initial-1',
       sender: 'agent',
-      text: `Hello Tushar. I am the **LangFlow AI Disaster Command Agent** for **${activeRegion.name}**. Connected to live telemetry and LangFlow AI pipeline. Ask me anything about heatwave predictions, severe wards, or water tanker dispatches!`,
+      text: 'Hello! I am the **Heatwave Disaster Command AI Agent**. I am connected to your live telemetry. Ask me anything about heatwave forecasts, vulnerable wards, or emergency resource dispatches.',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -68,14 +68,14 @@ export const AgentChat: React.FC = () => {
           code: w.code,
           name: w.name,
           zone: w.zone,
-          utci: w.currentMetrics.utci,
-          wbgt: w.currentMetrics.wbgt,
-          hvi: w.vulnerability.hvi,
+          utci: w.currentMetrics?.utci,
+          wbgt: w.currentMetrics?.wbgt,
+          hvi: w.vulnerability?.hvi,
           population: w.population,
         }));
 
       const contextData = {
-        region: activeRegion.name,
+        region: activeRegion?.name || 'NCR Region',
         totalWards: wards.length,
         severeCount: severeWardsList.length,
         severeWardsList,
@@ -106,7 +106,7 @@ export const AgentChat: React.FC = () => {
       const errorMsg: ChatMessage = {
         id: `msg-err-${Date.now()}`,
         sender: 'agent',
-        text: '⚠️ Unable to connect to LangFlow AI server.',
+        text: '⚠️ Unable to connect to LangFlow AI server. Please check if the backend service is running.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -118,18 +118,18 @@ export const AgentChat: React.FC = () => {
   const quickPrompts = [
     {
       icon: <Flame className="w-3 h-3 text-rose-400" />,
-      label: 'Kab Kab aur Konse Area me Heatwave aayega?',
-      prompt: `Kab Kab Heatwave aayega aur Konse Konse Area main aayega? Provide prediction for ${activeRegion.name}`,
+      label: 'Heatwave Area Forecast',
+      prompt: `When and which areas will experience severe heatwaves in ${activeRegion?.name || 'this region'}?`,
     },
     {
       icon: <Droplet className="w-3 h-3 text-sky-400" />,
       label: 'Water Tanker Placements',
-      prompt: `Which wards in ${activeRegion.name} require emergency water tankers immediately?`,
+      prompt: `Which wards in ${activeRegion?.name || 'this region'} require emergency water tankers immediately?`,
     },
     {
       icon: <ShieldAlert className="w-3 h-3 text-amber-400" />,
       label: 'UTCI Thermal Stress Summary',
-      prompt: `Summarize the current UTCI thermal stress for ${activeRegion.name}.`,
+      prompt: `Summarize the current UTCI thermal stress for ${activeRegion?.name || 'this region'}.`,
     },
   ];
 
@@ -165,14 +165,14 @@ export const AgentChat: React.FC = () => {
                 <div>
                   <div className="flex items-center space-x-2">
                     <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                      LangFlow AI Disaster Command Agent
+                      AI Disaster Command Agent
                     </h3>
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                       LIVE AGENT
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 truncate max-w-[280px]">
-                    {activeRegion.name} • Port 7860 / 8000 Ready
+                    {activeRegion?.name || 'NCR Region'} • Connected to LangFlow AI
                   </p>
                 </div>
               </div>
@@ -226,7 +226,7 @@ export const AgentChat: React.FC = () => {
                 <div className="flex items-center space-x-2 text-xs text-rose-400 bg-rose-950/40 p-3 rounded-xl border border-rose-900/50">
                   <RefreshCw className="w-4 h-4 animate-spin text-rose-400" />
                   <span className="font-mono text-xs font-bold">
-                    LangFlow AI is executing prompt flow & analyzing live telemetry...
+                    LangFlow AI Agent is analyzing telemetry and generating response...
                   </span>
                 </div>
               )}
@@ -258,7 +258,7 @@ export const AgentChat: React.FC = () => {
             >
               <input
                 type="text"
-                placeholder="Ask LangFlow AI anything (e.g. Gurgaon heatwave predictions)..."
+                placeholder="Ask LangFlow AI Agent anything..."
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 disabled={loading}

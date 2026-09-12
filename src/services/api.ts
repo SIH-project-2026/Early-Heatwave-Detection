@@ -14,7 +14,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 5000,
+  timeout: 20000,
 });
 
 // Interceptor for JWT authentication tokens

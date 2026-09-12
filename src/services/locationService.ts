@@ -5,6 +5,46 @@ import { MOCK_WARDS } from '../data/mockWards';
 import { calculateRiskLevel, calculateHviRiskLevel } from '../utils/riskUtils';
 import { fetchLiveWeatherForCoords, calculateHviFromTemp } from './liveWeatherService';
 
+// Geocoding Interface for Dynamic City / Ward Search
+export interface GeocodedLocation {
+  name: string;
+  lat: number;
+  lng: number;
+  boundingBox?: [number, number, number, number];
+}
+
+// Live OpenStreetMap Geocoding: Resolves random cities (e.g. Kanpur, Varanasi) to coordinates
+export async function searchCityCoordinates(query: string): Promise<GeocodedLocation | null> {
+  if (!query || query.trim().length < 2) return null;
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+      query.trim()
+    )}&limit=1&addressdetails=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        'Accept-Language': 'en',
+      },
+    });
+
+    const data = await response.json();
+    if (data && data.length > 0) {
+      const item = data[0];
+      return {
+        name: item.display_name.split(',')[0] || query,
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+        boundingBox: item.boundingbox ? item.boundingbox.map(Number) : undefined,
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching geocoding coordinates:', error);
+  }
+
+  return null;
+}
+
 export function wardToLocationItem(ward: Ward): LocationItem {
   const liveUtci = ward.currentMetrics.utci;
   const liveWbgt = ward.currentMetrics.wbgt;

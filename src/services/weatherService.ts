@@ -9,7 +9,8 @@ export const weatherService = {
   async getWeatherForecast(region?: MunicipalRegion, wards?: Ward[]): Promise<ForecastStep[]> {
     if (!isMockMode) {
       try {
-        const response = await apiClient.get<ForecastStep[]>('/weather/forecast', { params: { regionId: region?.id } });
+        // Swagger route /api/forecast ke according update kiya gaya hai
+        const response = await apiClient.get<ForecastStep[]>('/forecast', { params: { regionId: region?.id } });
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           return response.data;
         }
@@ -26,7 +27,8 @@ export const weatherService = {
   async getTimeSeriesData(region?: MunicipalRegion, wards?: Ward[]): Promise<ForecastTimeSeriesPoint[]> {
     if (!isMockMode) {
       try {
-        const response = await apiClient.get<ForecastTimeSeriesPoint[]>('/weather/timeseries', { params: { regionId: region?.id } });
+        // Swagger route /api/weather/ward-forecast se match kiya gaya hai
+        const response = await apiClient.get<ForecastTimeSeriesPoint[]>('/weather/ward-forecast', { params: { regionId: region?.id } });
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           return response.data;
         }

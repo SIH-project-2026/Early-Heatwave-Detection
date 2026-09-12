@@ -340,7 +340,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
     mapRef.current = map;
 
-    // Attach ResizeObserver to auto-resize map whenever layout width/height changes (e.g. sidebar toggle)
+    // Attach ResizeObserver to auto-resize map whenever layout width/height changes
     const resizeObserver = new ResizeObserver(() => {
       if (mapRef.current) {
         mapRef.current.resize();
@@ -351,7 +351,7 @@ export const MapView: React.FC<MapViewProps> = ({
       resizeObserver.observe(mapContainer.current);
     }
 
-    // Only update zoom state on integer zoom thresholds to avoid frame thrashing
+    // Update zoom state on integer thresholds
     map.on('zoomend', () => {
       const z = Math.floor(map.getZoom());
       setCurrentZoomInt(z);
@@ -412,6 +412,25 @@ export const MapView: React.FC<MapViewProps> = ({
     };
   }, []);
 
+  // Global Event Listener: Fly to searched city coordinates (e.g. Kanpur, Varanasi)
+  useEffect(() => {
+    const handleFlyToCoordinates = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lng: number; lat: number; zoom?: number }>;
+      const { lng, lat, zoom } = customEvent.detail || {};
+      if (mapRef.current && lng !== undefined && lat !== undefined) {
+        mapRef.current.flyTo({
+          center: [lng, lat],
+          zoom: zoom || 11.5,
+          duration: 1500,
+          essential: true,
+        });
+      }
+    };
+
+    window.addEventListener('flyToCoordinates', handleFlyToCoordinates);
+    return () => window.removeEventListener('flyToCoordinates', handleFlyToCoordinates);
+  }, []);
+
   // Sync selected ward polygon highlight when selection changes
   useEffect(() => {
     if (!mapRef.current) return;
@@ -445,13 +464,12 @@ export const MapView: React.FC<MapViewProps> = ({
     mapRef.current.setStyle(selectedStyle);
   }, [mapStyle]);
 
-  // Persistent Ward Markers Manager (In-place Mutation - NO DOM Recreation or Drag Shaking)
+  // Persistent Ward Markers Manager (In-place Mutation)
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
 
     const isCompactMode = currentZoomInt < 11;
 
-    // Clean up markers from previous region
     const activeWardIds = new Set(wards.map((w) => w.id));
     wardMarkersMapRef.current.forEach(({ marker }, id) => {
       if (!activeWardIds.has(id)) {
@@ -475,7 +493,6 @@ export const MapView: React.FC<MapViewProps> = ({
       let cached = wardMarkersMapRef.current.get(ward.id);
 
       if (!cached) {
-        // Create permanent DOM element once with zero CSS transitions on container
         const el = document.createElement('div');
         el.className = 'cursor-pointer select-none pointer-events-auto';
         el.style.willChange = 'transform';
@@ -498,7 +515,6 @@ export const MapView: React.FC<MapViewProps> = ({
         wardMarkersMapRef.current.set(ward.id, cached);
       }
 
-      // Update inner element HTML and classes in-place WITHOUT removing or recreating DOM node!
       const { innerEl, marker } = cached;
       marker.setLngLat(ward.centroid);
 
@@ -544,7 +560,6 @@ export const MapView: React.FC<MapViewProps> = ({
       return;
     }
 
-    // Clean up resource markers from previous region
     const activeResIds = new Set(resources.map((r) => r.id));
     resourceMarkersMapRef.current.forEach(({ marker }, id) => {
       if (!activeResIds.has(id)) {
@@ -646,7 +661,7 @@ export const MapView: React.FC<MapViewProps> = ({
       {/* Map Element Container */}
       <div ref={mapContainer} className="w-full h-full" />
 
-      {/* Floating Map Controls - Fixed & Stable Position */}
+      {/* Floating Map Controls */}
       <div className="absolute top-3 right-3 z-20 pointer-events-auto select-none">
         <MapControls
           onZoomIn={() => mapRef.current?.zoomIn()}
@@ -666,3 +681,5 @@ export const MapView: React.FC<MapViewProps> = ({
     </div>
   );
 };
+
+export default MapView;

@@ -9,7 +9,8 @@ export const resourceService = {
   async getResources(region?: MunicipalRegion, wards?: Ward[]): Promise<EmergencyResource[]> {
     if (!isMockMode) {
       try {
-        const response = await apiClient.get<EmergencyResource[]>('/resources', { params: { regionId: region?.id } });
+        // Trailing slash add kiya (/resources/) redirect aur cancel issue hatane ke liye
+        const response = await apiClient.get<EmergencyResource[]>('/resources/', { params: { regionId: region?.id } });
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           return response.data;
         }
@@ -26,7 +27,8 @@ export const resourceService = {
   async dispatchResource(resourceId: string): Promise<boolean> {
     if (!isMockMode) {
       try {
-        const response = await apiClient.post(`/resources/${resourceId}/dispatch`);
+        // Swagger doc ke mutabiq PATCH method use kiya
+        const response = await apiClient.patch(`/resources/${resourceId}/dispatch`);
         return response.status === 200;
       } catch (err) {
         console.warn('FastAPI dispatch fallback:', err);

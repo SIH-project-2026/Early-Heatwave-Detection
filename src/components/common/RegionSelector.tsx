@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { MUNICIPAL_REGIONS, createCustomRegion, type MunicipalRegion } from '../../types/region';
-import { MapPin, ChevronDown, Check, Search, Globe, Flame, Navigation, X, Map as MapIcon } from 'lucide-react';
+import { searchCityCoordinates } from '../../services/locationService';
+import { MapPin, ChevronDown, Check, Search, Globe, Flame, Navigation, X, Map as MapIcon, Loader2 } from 'lucide-react';
 
 interface RegionSelectorProps {
   activeRegion: MunicipalRegion;
@@ -19,6 +20,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'SEVERE' | 'HIGH'>('ALL');
   const [pickedCoords, setPickedCoords] = useState<[number, number]>(activeRegion.coordinates);
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -97,9 +99,9 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
 
     miniMapRef.current = miniMap;
 
-    // Create red map pin marker
     const pinEl = document.createElement('div');
-    pinEl.className = 'w-7 h-7 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-white shadow-xl animate-bounce';
+    pinEl.className =
+      'w-7 h-7 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-white shadow-xl animate-bounce';
     pinEl.innerHTML = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>`;
 
     const marker = new maplibregl.Marker({ element: pinEl, anchor: 'bottom' })
@@ -134,22 +136,59 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
     return matchesQuery && matchesFilter;
   });
 
-  const handleCustomSearchSelect = (query: string) => {
-    if (!query.trim()) return;
-    const newRegion = createCustomRegion(
-      query.trim(),
-      'Searched Location',
-      pickedCoords[1],
-      pickedCoords[0],
-      'HIGH'
-    );
-    onSelectRegion(newRegion);
-    setSearchQuery('');
-    setIsOpen(false);
+  // Dynamic Geocoding for custom cities like Kanpur
+  const handleCustomSearchSelect = async (query: string) => {
+    if (!query.trim() || isGeocoding) return;
+    setIsGeocoding(true);
+
+    try {
+      const geoResult = await searchCityCoordinates(query.trim());
+
+      let finalLng = pickedCoords[0];
+      let finalLat = pickedCoords[1];
+      let resolvedName = query.trim();
+
+      if (geoResult) {
+        finalLng = geoResult.lng;
+        finalLat = geoResult.lat;
+        resolvedName = geoResult.name;
+      }
+
+      const newRegion = createCustomRegion(
+        resolvedName.includes('Corporation') ? resolvedName : `${resolvedName} Municipal Corporation`,
+        'Searched Dynamic Location',
+        finalLat,
+        finalLng,
+        'HIGH'
+      );
+
+      // 1. Update Region in context
+      onSelectRegion(newRegion);
+
+      // 2. Dispatch smooth fly event for the main GIS MapView
+      window.dispatchEvent(
+        new CustomEvent('flyToCoordinates', {
+          detail: {
+            lng: finalLng,
+            lat: finalLat,
+            zoom: 11.5,
+          },
+        })
+      );
+
+      setSearchQuery('');
+      setIsOpen(false);
+    } catch (err) {
+      console.error('Custom location resolution error:', err);
+    } finally {
+      setIsGeocoding(false);
+    }
   };
 
   const handleConfirmPickedLocation = () => {
-    const name = searchQuery.trim() || `Pin Location (${pickedCoords[1].toFixed(3)}°N, ${pickedCoords[0].toFixed(3)}°E)`;
+    const name =
+      searchQuery.trim() ||
+      `Pin Location (${pickedCoords[1].toFixed(3)}°N, ${pickedCoords[0].toFixed(3)}°E)`;
     const newRegion = createCustomRegion(
       name,
       'Google Maps Selected Pin',
@@ -157,7 +196,19 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
       pickedCoords[0],
       'HIGH'
     );
+
     onSelectRegion(newRegion);
+
+    window.dispatchEvent(
+      new CustomEvent('flyToCoordinates', {
+        detail: {
+          lng: pickedCoords[0],
+          lat: pickedCoords[1],
+          zoom: 11.5,
+        },
+      })
+    );
+
     setIsOpen(false);
   };
 
@@ -166,7 +217,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
       {/* Dropdown Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="glass-panel px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-900/95 text-slate-200 hover:text-white hover:border-slate-500 transition-all flex items-center space-x-2 text-xs font-bold shadow-lg focus:outline-none"
+        className="glass-panel px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-900/95 text-slate-200 hover:text-white hover:border-slate-500 transition-all flex items-center space-x-2 text-xs font-bold shadow-lg focus:outline-none cursor-pointer"
         title="Google Maps Location Switcher"
         aria-label="Google Maps Location Switcher"
       >
@@ -192,7 +243,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('cities')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
                   activeTab === 'cities'
                     ? 'bg-rose-600 text-white shadow'
                     : 'text-slate-400 hover:text-slate-200'
@@ -203,7 +254,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('map')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center space-x-1 ${
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center space-x-1 cursor-pointer ${
                   activeTab === 'map'
                     ? 'bg-rose-600 text-white shadow'
                     : 'text-slate-400 hover:text-slate-200'
@@ -228,8 +279,22 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && filteredRegions.length === 0 && searchQuery) {
-                      handleCustomSearchSelect(searchQuery);
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      if (filteredRegions.length > 0) {
+                        onSelectRegion(filteredRegions[0]);
+                        window.dispatchEvent(
+                          new CustomEvent('flyToCoordinates', {
+                            detail: {
+                              lng: filteredRegions[0].coordinates[0],
+                              lat: filteredRegions[0].coordinates[1],
+                              zoom: 11.5,
+                            },
+                          })
+                        );
+                        setIsOpen(false);
+                      } else {
+                        handleCustomSearchSelect(searchQuery);
+                      }
                     }
                   }}
                   className="w-full pl-9 pr-8 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-rose-500 font-sans shadow-inner"
@@ -237,7 +302,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white"
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -248,7 +313,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
               <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none">
                 <button
                   onClick={() => setSelectedFilter('ALL')}
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer ${
                     selectedFilter === 'ALL' ? 'bg-slate-800 text-white' : 'text-slate-400'
                   }`}
                 >
@@ -256,7 +321,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
                 </button>
                 <button
                   onClick={() => setSelectedFilter('SEVERE')}
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center space-x-1 ${
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center space-x-1 cursor-pointer ${
                     selectedFilter === 'SEVERE' ? 'bg-rose-600 text-white' : 'text-rose-400'
                   }`}
                 >
@@ -274,10 +339,20 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
                     </span>
                     <button
                       onClick={() => handleCustomSearchSelect(searchQuery)}
-                      className="w-full py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all flex items-center justify-center space-x-1.5"
+                      disabled={isGeocoding}
+                      className="w-full py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
                     >
-                      <Navigation className="w-3.5 h-3.5" />
-                      <span>Set Map Location to "{searchQuery}"</span>
+                      {isGeocoding ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Locating {searchQuery}...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Navigation className="w-3.5 h-3.5" />
+                          <span>Set Map Location to "{searchQuery}"</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 ) : (
@@ -288,9 +363,18 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
                         key={region.id}
                         onClick={() => {
                           onSelectRegion(region);
+                          window.dispatchEvent(
+                            new CustomEvent('flyToCoordinates', {
+                              detail: {
+                                lng: region.coordinates[0],
+                                lat: region.coordinates[1],
+                                zoom: 11.5,
+                              },
+                            })
+                          );
                           setIsOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-start justify-between gap-2.5 text-xs ${
+                        className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-start justify-between gap-2.5 text-xs cursor-pointer ${
                           isSelected
                             ? 'bg-rose-500/25 border border-rose-500/50 text-white font-bold shadow-lg'
                             : 'hover:bg-slate-800/90 text-slate-300 hover:text-white'
@@ -345,7 +429,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmPickedLocation}
-                className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white font-extrabold text-xs shadow-lg hover:from-rose-500 hover:to-amber-500 transition-all flex items-center justify-center space-x-2"
+                className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white font-extrabold text-xs shadow-lg hover:from-rose-500 hover:to-amber-500 transition-all flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <MapPin className="w-4 h-4" />
                 <span>Confirm & Set Google Map Location</span>
@@ -357,3 +441,5 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
     </div>
   );
 };
+
+export default RegionSelector;

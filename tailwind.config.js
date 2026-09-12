@@ -29,6 +29,12 @@ export default {
           'severe-bg': 'rgba(239, 68, 68, 0.15)',
         },
         panel: {
+          // Light Mode Defaults
+          light: '#F8FAFC',
+          'light-card': '#FFFFFF',
+          'light-border': '#E2E8F0',
+          'light-text': '#0F172A',
+          // Dark Mode Defaults
           bg: '#0F172A',
           card: '#1E293B',
           border: '#334155',

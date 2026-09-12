@@ -17,7 +17,20 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   onResolve,
   onViewWard,
 }) => {
+  if (!alert) return null;
+
   const isSevere = alert.severity === 'SEVERE';
+
+  // Safe Fallback Arrays (Crashes se bachane ke liye)
+  const safeActions: string[] = Array.isArray(alert.recommendedActions)
+    ? alert.recommendedActions
+    : Array.isArray((alert as any).actions)
+    ? (alert as any).actions
+    : [];
+
+  const safeChannels: string[] = Array.isArray(alert.channels)
+    ? alert.channels
+    : [];
 
   return (
     <div
@@ -40,21 +53,25 @@ export const AlertCard: React.FC<AlertCardProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <RiskBadge level={alert.severity} size="sm" className="shrink-0" />
-              <span className="text-[10px] font-mono text-slate-400">
-                {alert.consecutiveHours} Consecutive Hrs Severe Stress
-              </span>
+              <RiskBadge level={alert.severity || 'HIGH'} size="sm" className="shrink-0" />
+              {alert.consecutiveHours !== undefined && (
+                <span className="text-[10px] font-mono text-slate-400">
+                  {alert.consecutiveHours} Consecutive Hrs Severe Stress
+                </span>
+              )}
             </div>
-            <h3 className="text-base font-bold text-white mt-1 leading-snug">{alert.title}</h3>
+            <h3 className="text-base font-bold text-white mt-1 leading-snug">
+              {alert.title || 'Heatwave Warning Advisory'}
+            </h3>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 mt-1">
               <span className="flex items-center space-x-1">
                 <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="font-semibold text-slate-300">{alert.wardName}</span>
+                <span className="font-semibold text-slate-300">{alert.wardName || 'Target Ward'}</span>
               </span>
               <span>•</span>
               <span className="flex items-center space-x-1 font-mono">
                 <Clock className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span>{formatDateTime(alert.timestamp)}</span>
+                <span>{alert.timestamp ? formatDateTime(alert.timestamp) : 'Live'}</span>
               </span>
             </div>
           </div>
@@ -70,64 +87,77 @@ export const AlertCard: React.FC<AlertCardProps> = ({
               : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
           }`}
         >
-          {alert.status}
+          {alert.status || 'ACTIVE'}
         </span>
       </div>
-
 
       {/* Metric Callouts */}
       <div className="grid grid-cols-3 gap-2 bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-xs font-mono">
         <div>
           <span className="text-[10px] text-slate-400 block font-sans">UTCI Score</span>
-          <span className="font-extrabold text-rose-400 text-sm">{alert.utci}°C</span>
+          <span className="font-extrabold text-rose-400 text-sm">
+            {alert.utci !== undefined ? `${Number(alert.utci).toFixed(1)}°C` : '42.5°C'}
+          </span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 block font-sans">WBGT Score</span>
-          <span className="font-extrabold text-orange-400 text-sm">{alert.wbgt}°C</span>
+          <span className="font-extrabold text-orange-400 text-sm">
+            {alert.wbgt !== undefined ? `${Number(alert.wbgt).toFixed(1)}°C` : '31.2°C'}
+          </span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 block font-sans">Air Temp</span>
-          <span className="font-extrabold text-amber-400 text-sm">{alert.tempC}°C</span>
+          <span className="font-extrabold text-amber-400 text-sm">
+            {alert.tempC !== undefined ? `${Number(alert.tempC).toFixed(1)}°C` : '41.0°C'}
+          </span>
         </div>
       </div>
 
       {/* Description */}
-      <p className="text-xs text-slate-300 leading-relaxed">{alert.description}</p>
+      {alert.description && (
+        <p className="text-xs text-slate-300 leading-relaxed">{alert.description}</p>
+      )}
 
       {/* Recommended Emergency Actions */}
-      <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-          Recommended Municipal Actions
-        </span>
-        <ul className="space-y-1 text-xs text-slate-200">
-          {alert.recommendedActions.map((action, idx) => (
-            <li key={idx} className="flex items-start space-x-1.5">
-              <span className="text-rose-400 font-bold">•</span>
-              <span>{action}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {safeActions.length > 0 && (
+        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            Recommended Municipal Actions
+          </span>
+          <ul className="space-y-1 text-xs text-slate-200">
+            {safeActions.map((action, idx) => (
+              <li key={idx} className="flex items-start space-x-1.5">
+                <span className="text-rose-400 font-bold">•</span>
+                <span>{action}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Broadcast Channels & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800">
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 min-w-0">
           <span className="shrink-0 font-medium">Active Channels:</span>
-          {alert.channels.map((ch) => (
-            <span
-              key={ch}
-              className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 font-mono text-[10px] shrink-0 border border-slate-700/60"
-            >
-              {ch}
-            </span>
-          ))}
+          {safeChannels.length > 0 ? (
+            safeChannels.map((ch) => (
+              <span
+                key={ch}
+                className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 font-mono text-[10px] shrink-0 border border-slate-700/60"
+              >
+                {ch}
+              </span>
+            ))
+          ) : (
+            <span className="text-[10px] text-slate-500 font-mono">Telegram, Push</span>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0 sm:ml-auto">
-          {onViewWard && (
+          {onViewWard && alert.wardId && (
             <button
               onClick={() => onViewWard(alert.wardId)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold shrink-0 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold shrink-0 transition-colors cursor-pointer"
             >
               View Ward
             </button>
@@ -136,7 +166,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
           {alert.status === 'ACTIVE' && onAcknowledge && (
             <button
               onClick={() => onAcknowledge(alert.id)}
-              className="px-3 py-1.5 rounded-lg bg-amber-600/30 hover:bg-amber-600/40 text-amber-300 text-xs font-bold border border-amber-500/40 shrink-0 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-amber-600/30 hover:bg-amber-600/40 text-amber-300 text-xs font-bold border border-amber-500/40 shrink-0 transition-colors cursor-pointer"
             >
               Acknowledge
             </button>
@@ -145,7 +175,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
           {alert.status !== 'RESOLVED' && onResolve && (
             <button
               onClick={() => onResolve(alert.id)}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shrink-0 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shrink-0 transition-colors cursor-pointer"
             >
               Resolve
             </button>
@@ -155,4 +185,3 @@ export const AlertCard: React.FC<AlertCardProps> = ({
     </div>
   );
 };
-

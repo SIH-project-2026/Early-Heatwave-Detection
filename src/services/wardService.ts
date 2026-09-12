@@ -8,7 +8,8 @@ export const wardService = {
   async getWards(region?: MunicipalRegion): Promise<Ward[]> {
     if (!isMockMode) {
       try {
-        const response = await apiClient.get<Ward[]>('/wards', { params: { regionId: region?.id } });
+        // Trailing slash add kiya hai (/wards/) redirect hatane ke liye
+        const response = await apiClient.get<Ward[]>('/wards/', { params: { regionId: region?.id } });
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           return response.data;
         }
