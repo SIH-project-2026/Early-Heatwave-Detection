@@ -10,6 +10,15 @@ export interface MunicipalRegion {
 
 export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
   {
+    id: 'guwahati',
+    name: 'Guwahati Metropolitan Area',
+    state: 'Assam',
+    coordinates: [91.7362, 26.1445],
+    zoom: 12,
+    description: 'Kamrup Metro & Brahmaputra valley heat & humidity stress telemetry',
+    riskStatus: 'SEVERE',
+  },
+  {
     id: 'delhi-gurgaon',
     name: 'Delhi - Gurgaon (Gurugram) NCR Region',
     state: 'Delhi / Haryana',
@@ -20,11 +29,20 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
   },
   {
     id: 'gurgaon',
-    name: 'Gurugram (Gurgaon) City Core',
+    name: 'Gurugram (Gurgaon) & Sohna Region',
     state: 'Haryana',
     coordinates: [77.0266, 28.4595],
     zoom: 12,
-    description: 'Cyber City, MG Road & Manesar Industrial telemetry',
+    description: 'Cyber City, Sohna Valley, MG Road & Manesar Industrial telemetry',
+    riskStatus: 'SEVERE',
+  },
+  {
+    id: 'sohna-gurgaon',
+    name: 'Sohna - South Gurugram (Gurgaon)',
+    state: 'Haryana',
+    coordinates: [77.0697, 28.2464],
+    zoom: 12.5,
+    description: 'Sohna Valley, Shiva Kund, Elevated Expressway & Damdama foothills weather telemetry',
     riskStatus: 'SEVERE',
   },
   {

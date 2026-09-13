@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useHeatwave } from '../context/HeatwaveContext';
 import { runLangflowAgent } from '../services/langflowService';
+import { fetchLiveWeatherForCoords } from '../services/liveWeatherService';
 import {
   Sparkles,
   Bot,
@@ -11,6 +12,7 @@ import {
   Droplet,
   ShieldAlert,
   Flame,
+  Siren,
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -21,9 +23,15 @@ interface ChatMessage {
 }
 
 export const AgentChat: React.FC = () => {
-  const { activeRegion, wards, alerts, currentStep, selectedLocation } = useHeatwave();
-
-  const [isOpen, setIsOpen] = useState(false);
+  const {
+    activeRegion,
+    wards,
+    alerts,
+    currentStep,
+    selectedLocation,
+    isAgentChatOpen,
+    setIsAgentChatOpen,
+  } = useHeatwave();
   const [loading, setLoading] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
 
@@ -33,7 +41,15 @@ export const AgentChat: React.FC = () => {
     {
       id: 'welcome-1',
       sender: 'agent',
-      text: `Hello Tushar. I am the **LangFlow AI Disaster Command Agent** for **${activeRegion.name}**. Connected to live telemetry and LangFlow AI pipeline. Ask me anything about heatwave predictions, severe wards, or water tanker dispatches!`,
+      text: `Namaste! Main aapka Weather & Heatwave Safety Assistant hoon. 🌤️
+
+Aap mujhse aam bolchal me mausam, kal ka taapmaan, garmi ya baarish ke baare me kuch bhi pooch sakte hain!
+
+Jaise:
+• "Kal mausam kaisa hoga?"
+• "Kya heatwave ya zyada garmi ka khatra hai?"
+• "Emergency me ambulance aur hospital kahan hai?"
+• "Garmi se bachne ke aasan tips"`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -43,8 +59,8 @@ export const AgentChat: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isOpen) scrollToBottom();
-  }, [messages, isOpen]);
+    if (isAgentChatOpen) scrollToBottom();
+  }, [messages, isAgentChatOpen]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend || inputMessage;
@@ -62,33 +78,47 @@ export const AgentChat: React.FC = () => {
     setLoading(true);
 
     try {
-      const severeWardsList = wards
-        .filter((w) => w.currentMetrics?.riskLevel === 'SEVERE' || w.currentMetrics?.riskLevel === 'HIGH')
-        .map((w) => ({
-          code: w.code,
-          name: w.name,
-          zone: w.zone,
-          utci: w.currentMetrics.utci,
-          wbgt: w.currentMetrics.wbgt,
-          hvi: w.vulnerability.hvi,
-          population: w.population,
-        }));
+      // Fetch live weather telemetry for the active region
+      let liveWeather = null;
+      try {
+        liveWeather = await fetchLiveWeatherForCoords(
+          activeRegion.coordinates[1],
+          activeRegion.coordinates[0],
+          activeRegion.name
+        );
+      } catch (err) {
+        console.warn('Weather fetch in agent note:', err);
+      }
+
+      const ambientTemp = liveWeather?.temperatureC ?? selectedLocation?.ambientTemperature ?? 27;
+      const apparentTemp = liveWeather?.apparentTempC ?? ambientTemp + 3;
+      const conditionText = liveWeather?.conditionText ?? 'Mostly cloudy';
+      const humidity = liveWeather?.humidity ?? 82;
+      const rainProb = liveWeather?.precipitationProbability ?? 70;
+      const dailyForecast = liveWeather?.dailyForecast ?? [];
+      const tomorrow = dailyForecast[1] || dailyForecast[0] || null;
+      const isActualHeatwave = ambientTemp >= 38;
 
       const contextData = {
         region: activeRegion.name,
         totalWards: wards.length,
-        severeCount: severeWardsList.length,
-        severeWardsList,
-        heatwaveTimeline: [
-          { hour: 0, time: 'Today 2:00 PM', status: 'Extreme Heatwave Peak', utci: selectedLocation?.uctiIndex || 49.4 },
-          { hour: 24, time: 'Tomorrow 1:30 PM', status: 'Severe Heatwave Spike', utci: 50.8 },
-          { hour: 48, time: 'Day 3 12:00 PM', status: 'High Thermal Stress', utci: 47.6 },
-          { hour: 96, time: 'Day 5 1:00 PM', status: 'Extended Diurnal Heat Surge', utci: 49.8 },
-        ],
-        selectedLocation: selectedLocation?.name || 'City Center',
-        currentUtci: selectedLocation?.uctiIndex || wards[0]?.currentMetrics?.utci || 49.4,
-        ambientTemp: selectedLocation?.ambientTemperature || wards[0]?.currentMetrics?.tempC || 42.5,
-        wbgt: selectedLocation?.wbgtIndex || wards[0]?.currentMetrics?.wbgt || 33.7,
+        severeCount: isActualHeatwave ? wards.filter((w) => w.currentMetrics?.riskLevel === 'SEVERE').length : 0,
+        isActualHeatwave,
+        severeWardsList: wards.slice(0, 5).map((w) => ({
+          code: w.code,
+          name: w.name,
+          zone: w.zone,
+          temp: w.currentMetrics?.tempC || ambientTemp,
+          population: w.population,
+        })),
+        ambientTemp,
+        apparentTemp,
+        conditionText,
+        humidity,
+        rainProb,
+        tomorrow,
+        dailyForecast,
+        selectedLocation: selectedLocation?.name || activeRegion.name,
       };
 
       // Call LangFlow Agent service
@@ -106,7 +136,7 @@ export const AgentChat: React.FC = () => {
       const errorMsg: ChatMessage = {
         id: `msg-err-${Date.now()}`,
         sender: 'agent',
-        text: '⚠️ Unable to connect to LangFlow AI server.',
+        text: '⚠️ Sambandhit jankari prapt karne me asuvidha hui. Kripya punah prayas karein.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -117,69 +147,57 @@ export const AgentChat: React.FC = () => {
 
   const quickPrompts = [
     {
-      icon: <Flame className="w-3 h-3 text-rose-400" />,
-      label: 'Kab Kab aur Konse Area me Heatwave aayega?',
-      prompt: `Kab Kab Heatwave aayega aur Konse Konse Area main aayega? Provide prediction for ${activeRegion.name}`,
+      icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
+      label: 'Kal Mausam Kaisa Hoga?',
+      prompt: `Kal ka mausam kaisa hoga ${activeRegion.name} me?`,
     },
     {
-      icon: <Droplet className="w-3 h-3 text-sky-400" />,
-      label: 'Water Tanker Placements',
-      prompt: `Which wards in ${activeRegion.name} require emergency water tankers immediately?`,
+      icon: <Flame className="w-3.5 h-3.5 text-rose-400" />,
+      label: 'Kya Heatwave Ka Khatra Hai?',
+      prompt: `Kya ${activeRegion.name} me heatwave ya tez dhoop aayegi?`,
     },
     {
-      icon: <ShieldAlert className="w-3 h-3 text-amber-400" />,
-      label: 'UTCI Thermal Stress Summary',
-      prompt: `Summarize the current UTCI thermal stress for ${activeRegion.name}.`,
+      icon: <Siren className="w-3.5 h-3.5 text-rose-400" />,
+      label: 'Emergency Ambulance & Hospital',
+      prompt: `Emergency me ambulance aur hospital kahan milega ${activeRegion.name} me?`,
+    },
+    {
+      icon: <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />,
+      label: 'Garmi Se Bachne Ke Tips',
+      prompt: `Garmi aur dhoop se bachne ke liye kya savdhani bartein?`,
     },
   ];
 
   return (
     <>
-      {/* Floating Launcher Button */}
-      <div className="fixed bottom-5 right-5 z-[999] select-none font-sans">
-        <button
-          onClick={() => setIsOpen(true)}
-          className="group relative flex items-center space-x-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-rose-600 via-amber-600 to-rose-700 text-white font-extrabold text-xs shadow-2xl hover:shadow-rose-500/50 hover:scale-105 transition-all ring-2 ring-white/30 animate-bounce hover:animate-none"
-          title="Open LangFlow AI Assistant"
-          aria-label="Open LangFlow AI Assistant"
-        >
-          <div className="relative">
-            <Bot className="w-5 h-5" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-900 animate-ping" />
-          </div>
-          <span className="tracking-wide uppercase font-sans font-black text-xs">ASK AI</span>
-          <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
-        </button>
-      </div>
-
       {/* Interactive Responsive Chat Modal / Drawer */}
-      {isOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150 select-none">
-          <div className="glass-panel w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950/98 shadow-2xl overflow-hidden flex flex-col h-[580px] max-h-[90vh]">
+      {isAgentChatOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150 select-none font-sans">
+          <div className="w-full max-w-xl rounded-3xl border border-white/[0.08] bg-[#181920] shadow-2xl overflow-hidden flex flex-col h-[580px] max-h-[90vh] card-highlight-rim">
             {/* Modal Header */}
-            <div className="p-3.5 bg-gradient-to-r from-slate-900 via-slate-900 to-rose-950/80 border-b border-slate-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-rose-500 to-amber-600 text-white shadow-lg">
+            <div className="p-4 bg-[#181920] border-b border-white/[0.06] flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400 shadow-md">
                   <Bot className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
                     <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                      LangFlow AI Disaster Command Agent
+                      Heatwave Safety AI Assistant
                     </h3>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <span className="px-2 py-0.5 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                       LIVE AGENT
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 truncate max-w-[280px]">
-                    {activeRegion.name} • Port 7860 / 8000 Ready
+                    {activeRegion.name} • Thermal Safety & Telemetry
                   </p>
                 </div>
               </div>
 
               <button
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                onClick={() => setIsAgentChatOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
                 title="Close AI Assistant"
               >
                 <X className="w-5 h-5" />
@@ -187,7 +205,7 @@ export const AgentChat: React.FC = () => {
             </div>
 
             {/* Chat Messages Body */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3.5 scrollbar-thin scrollbar-thumb-slate-800">
+            <div className="flex-1 p-4 bg-[#13141a] overflow-y-auto space-y-3.5 scrollbar-thin scrollbar-thumb-slate-800">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -199,17 +217,17 @@ export const AgentChat: React.FC = () => {
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-white shrink-0 shadow-md ${
                       msg.sender === 'user'
                         ? 'bg-sky-600'
-                        : 'bg-gradient-to-br from-rose-500 to-amber-600'
+                        : 'bg-rose-600'
                     }`}
                   >
                     {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </div>
 
                   <div
-                    className={`max-w-[85%] p-3.5 rounded-2xl space-y-1.5 ${
+                    className={`max-w-[85%] p-4 rounded-2xl space-y-1.5 ${
                       msg.sender === 'user'
                         ? 'bg-sky-600 text-white rounded-tr-none shadow-lg'
-                        : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none shadow-md'
+                        : 'bg-[#181920] border border-white/[0.08] text-slate-200 rounded-tl-none shadow-md'
                     }`}
                   >
                     <div className="whitespace-pre-wrap leading-relaxed font-sans text-xs">
@@ -223,10 +241,10 @@ export const AgentChat: React.FC = () => {
               ))}
 
               {loading && (
-                <div className="flex items-center space-x-2 text-xs text-rose-400 bg-rose-950/40 p-3 rounded-xl border border-rose-900/50">
+                <div className="flex items-center space-x-2.5 text-xs text-rose-300 bg-rose-500/15 p-3.5 rounded-2xl border border-rose-500/25">
                   <RefreshCw className="w-4 h-4 animate-spin text-rose-400" />
                   <span className="font-mono text-xs font-bold">
-                    LangFlow AI is executing prompt flow & analyzing live telemetry...
+                    AI Agent is analyzing live telemetry & heatwave data...
                   </span>
                 </div>
               )}
@@ -234,13 +252,13 @@ export const AgentChat: React.FC = () => {
             </div>
 
             {/* Quick Action Chips Bar */}
-            <div className="p-2 border-t border-slate-800/80 bg-slate-950 overflow-x-auto scrollbar-none flex gap-2 shrink-0">
+            <div className="p-2.5 border-t border-white/[0.06] bg-[#181920] overflow-x-auto scrollbar-none flex gap-2 shrink-0">
               {quickPrompts.map((qp, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSendMessage(qp.prompt)}
                   disabled={loading}
-                  className="px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center space-x-1.5 whitespace-nowrap transition-all shrink-0 shadow-sm"
+                  className="px-3 py-1.5 rounded-xl bg-[#13141a] border border-white/[0.06] hover:border-sky-500/40 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center space-x-1.5 whitespace-nowrap transition-all shrink-0 shadow-sm cursor-pointer"
                 >
                   {qp.icon}
                   <span>{qp.label}</span>
@@ -254,21 +272,21 @@ export const AgentChat: React.FC = () => {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="p-3 bg-slate-900 border-t border-slate-800 flex items-center space-x-2 shrink-0"
+              className="p-3.5 bg-[#181920] border-t border-white/[0.06] flex items-center space-x-2 shrink-0"
             >
               <input
                 type="text"
-                placeholder="Ask LangFlow AI anything (e.g. Gurgaon heatwave predictions)..."
+                placeholder="Ask me anything about weather or heat safety..."
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 disabled={loading}
-                className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                className="flex-1 bg-[#13141a] border border-white/[0.08] rounded-2xl px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-sky-500/60 transition-all font-sans"
               />
               <button
                 type="submit"
                 disabled={!inputMessage.trim() || loading}
-                className="p-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white transition-all shrink-0 shadow-md"
-                title="Send Message to LangFlow AI"
+                className="p-3 rounded-2xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white transition-all shrink-0 shadow-lg shadow-rose-950/60 cursor-pointer active:scale-95"
+                title="Send Message to AI Agent"
               >
                 <Send className="w-4 h-4" />
               </button>

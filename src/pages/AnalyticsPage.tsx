@@ -9,7 +9,7 @@ import { ExposureChart } from '../components/charts/ExposureChart';
 import { LoadingState } from '../components/common/LoadingState';
 import { LivePollutionDetector } from '../components/common/LivePollutionDetector';
 import { RiskBadge } from '../components/common/RiskBadge';
-import { Activity, GitCompare } from 'lucide-react';
+import { Activity, GitCompare, Sparkles, BarChart2 } from 'lucide-react';
 import { formatNumber, formatTemp, formatHvi } from '../utils/formatters';
 
 export const AnalyticsPage: React.FC = () => {
@@ -41,21 +41,30 @@ export const AnalyticsPage: React.FC = () => {
   const wardB = wards.find((w) => w.id === wardBId) || wards[1];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="glass-panel p-5 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-black text-white uppercase tracking-tight">
-            Heat Stress & Mortality Risk Analytics
+    <div className="space-y-6 select-none font-sans">
+      {/* Top Banner / Operations Deck */}
+      <div className="relative overflow-hidden rounded-3xl bg-[#181920] p-6 sm:p-7 border border-white/[0.06] shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-5 card-highlight-rim">
+        <div className="absolute -right-16 -top-16 w-72 h-72 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 min-w-0 max-w-2xl">
+          <div className="flex items-center space-x-2.5 mb-2">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-black tracking-widest uppercase bg-[#13141a] text-sky-300 border border-sky-500/30 flex items-center space-x-1.5 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+              <span>SYNOPTIC CLIMATOLOGY & MORTALITY ANALYTICS</span>
+            </span>
+          </div>
+
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight leading-snug">
+            Heat Stress & Population Exposure Analytics
           </h1>
-          <p className="text-xs text-slate-400">
-            Synoptic thermal indices (UTCI & WBGT) and socio-demographic vulnerability breakdown
+          <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
+            Synoptic thermal indices (UTCI & WBGT) and socio-demographic vulnerability breakdown calibrated for the National Heat Action Plan.
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 text-xs text-slate-300 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 font-mono">
-          <Activity className="w-4 h-4 text-emerald-400" />
-          <span>Biometeorological Model Verified</span>
+        <div className="relative z-10 flex items-center space-x-2 text-xs text-slate-300 bg-[#13141a] px-3.5 py-2 rounded-2xl border border-white/[0.06] font-mono shadow-md shrink-0 self-start md:self-auto">
+          <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>Biometeorology Model Verified</span>
         </div>
       </div>
 
@@ -77,28 +86,32 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* Ward Head-to-Head Comparison Tool */}
-      <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center space-x-2">
+      <div className="rounded-3xl bg-[#181920] p-6 border border-white/[0.06] shadow-xl space-y-5 card-highlight-rim">
+        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
+          <div className="flex items-center space-x-2.5">
             <GitCompare className="w-5 h-5 text-rose-500" />
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+            <h2 className="text-sm sm:text-base font-bold text-white uppercase tracking-wider font-mono">
               Comparative Ward Vulnerability Analysis
             </h2>
           </div>
-          <span className="text-xs text-slate-400 font-mono">Side-by-Side Risk Assessment</span>
+          <span className="text-xs text-slate-400 font-mono hidden sm:inline-block">
+            Side-by-Side Risk Assessment
+          </span>
         </div>
 
         {/* Selectors */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs text-slate-400 block mb-1 font-semibold">Select Ward A</label>
+            <label className="text-xs text-slate-400 block mb-1.5 font-mono font-semibold uppercase tracking-wider">
+              Select Ward A
+            </label>
             <select
               value={wardAId}
               onChange={(e) => setWardAId(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-rose-500 font-mono"
+              className="w-full bg-[#13141a] border border-white/[0.08] rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-rose-500 font-mono cursor-pointer transition-colors shadow-inner"
             >
               {wards.map((w) => (
-                <option key={w.id} value={w.id}>
+                <option key={w.id} value={w.id} className="bg-[#181920] text-white">
                   {w.code} - {w.name} ({w.currentMetrics.riskLevel})
                 </option>
               ))}
@@ -106,14 +119,16 @@ export const AnalyticsPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 block mb-1 font-semibold">Select Ward B</label>
+            <label className="text-xs text-slate-400 block mb-1.5 font-mono font-semibold uppercase tracking-wider">
+              Select Ward B
+            </label>
             <select
               value={wardBId}
               onChange={(e) => setWardBId(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-rose-500 font-mono"
+              className="w-full bg-[#13141a] border border-white/[0.08] rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-rose-500 font-mono cursor-pointer transition-colors shadow-inner"
             >
               {wards.map((w) => (
-                <option key={w.id} value={w.id}>
+                <option key={w.id} value={w.id} className="bg-[#181920] text-white">
                   {w.code} - {w.name} ({w.currentMetrics.riskLevel})
                 </option>
               ))}
@@ -125,61 +140,61 @@ export const AnalyticsPage: React.FC = () => {
         {wardA && wardB && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             {/* Ward A Card */}
-            <div className="glass-card p-4 rounded-xl border border-slate-700 space-y-3">
+            <div className="rounded-2xl bg-[#13141a] p-5 border border-white/[0.06] space-y-4 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-mono text-rose-400">{wardA.code}</span>
-                  <h3 className="text-base font-bold text-white">{wardA.name}</h3>
+                  <span className="text-xs font-mono text-rose-400 font-bold">{wardA.code}</span>
+                  <h3 className="text-base font-bold text-white mt-0.5">{wardA.name}</h3>
                 </div>
                 <RiskBadge level={wardA.currentMetrics.riskLevel} size="sm" />
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="bg-slate-900 p-2 rounded">
-                  <span className="text-[10px] text-slate-400 block font-sans">UTCI Index</span>
-                  <span className="text-rose-400 font-bold">{formatTemp(wardA.currentMetrics.utci)}</span>
+              <div className="grid grid-cols-2 gap-2.5 text-xs font-mono">
+                <div className="bg-[#181920] p-3 rounded-xl border border-white/[0.05]">
+                  <span className="text-[10px] text-slate-400 block font-mono uppercase tracking-wider">UTCI Index</span>
+                  <span className="text-rose-400 font-black text-sm mt-0.5 block">{formatTemp(wardA.currentMetrics.utci)}</span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded">
-                  <span className="text-[10px] text-slate-400 block font-sans">HVI Score</span>
-                  <span className="text-amber-400 font-bold">{formatHvi(wardA.vulnerability.hvi)}</span>
+                <div className="bg-[#181920] p-3 rounded-xl border border-white/[0.05]">
+                  <span className="text-[10px] text-slate-400 block font-mono uppercase tracking-wider">HVI Score</span>
+                  <span className="text-amber-400 font-black text-sm mt-0.5 block">{formatHvi(wardA.vulnerability.hvi)}</span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded">
-                  <span className="text-[10px] text-slate-400 block font-sans">Population</span>
-                  <span className="text-slate-200 font-bold">{formatNumber(wardA.population)}</span>
+                <div className="bg-[#181920] p-3 rounded-xl border border-white/[0.05]">
+                  <span className="text-[10px] text-slate-400 block font-mono uppercase tracking-wider">Population</span>
+                  <span className="text-slate-200 font-black text-sm mt-0.5 block">{formatNumber(wardA.population)}</span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded">
-                  <span className="text-[10px] text-slate-400 block font-sans">NDVI Index</span>
-                  <span className="text-emerald-400 font-bold">{wardA.vulnerability.ndvi.toFixed(2)}</span>
+                <div className="bg-[#181920] p-3 rounded-xl border border-white/[0.05]">
+                  <span className="text-[10px] text-slate-400 block font-mono uppercase tracking-wider">NDVI Index</span>
+                  <span className="text-emerald-400 font-black text-sm mt-0.5 block">{wardA.vulnerability.ndvi.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
             {/* Ward B Card */}
-            <div className="glass-card p-4 rounded-xl border border-slate-700 space-y-3">
+            <div className="rounded-2xl bg-[#13141a] p-5 border border-white/[0.06] space-y-4 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-mono text-rose-400">{wardB.code}</span>
-                  <h3 className="text-base font-bold text-white">{wardB.name}</h3>
+                  <span className="text-xs font-mono text-sky-400 font-bold">{wardB.code}</span>
+                  <h3 className="text-base font-bold text-white mt-0.5">{wardB.name}</h3>
                 </div>
                 <RiskBadge level={wardB.currentMetrics.riskLevel} size="sm" />
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="bg-slate-900 p-2 rounded">
-                  <span className="text-[10px] text-slate-400 block font-sans">UTCI Index</span>
-                  <span className="text-rose-400 font-bold">{formatTemp(wardB.currentMetrics.utci)}</span>
+              <div className="grid grid-cols-2 gap-2.5 text-xs font-mono">
+                <div className="bg-[#181920] p-3 rounded-xl border border-white/[0.05]">
+                  <span className="text-[10px] text-slate-400 block font-mono uppercase tracking-wider">UTCI Index</span>
+                  <span className="text-rose-400 font-black text-sm mt-0.5 block">{formatTemp(wardB.currentMetrics.utci)}</span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded">
-                  <span className="text-[10px] text-slate-400 block font-sans">HVI Score</span>
-                  <span className="text-amber-400 font-bold">{formatHvi(wardB.vulnerability.hvi)}</span>
+                <div className="bg-[#181920] p-3 rounded-xl border border-white/[0.05]">
+                  <span className="text-[10px] text-slate-400 block font-mono uppercase tracking-wider">HVI Score</span>
+                  <span className="text-amber-400 font-black text-sm mt-0.5 block">{formatHvi(wardB.vulnerability.hvi)}</span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded">
-                  <span className="text-[10px] text-slate-400 block font-sans">Population</span>
-                  <span className="text-slate-200 font-bold">{formatNumber(wardB.population)}</span>
+                <div className="bg-[#181920] p-3 rounded-xl border border-white/[0.05]">
+                  <span className="text-[10px] text-slate-400 block font-mono uppercase tracking-wider">Population</span>
+                  <span className="text-slate-200 font-black text-sm mt-0.5 block">{formatNumber(wardB.population)}</span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded">
-                  <span className="text-[10px] text-slate-400 block font-sans">NDVI Index</span>
-                  <span className="text-emerald-400 font-bold">{wardB.vulnerability.ndvi.toFixed(2)}</span>
+                <div className="bg-[#181920] p-3 rounded-xl border border-white/[0.05]">
+                  <span className="text-[10px] text-slate-400 block font-mono uppercase tracking-wider">NDVI Index</span>
+                  <span className="text-emerald-400 font-black text-sm mt-0.5 block">{wardB.vulnerability.ndvi.toFixed(2)}</span>
                 </div>
               </div>
             </div>

@@ -58,16 +58,17 @@ export const ExposureChart: React.FC<ExposureChartProps> = ({ wards }) => {
               dataKey="value"
             >
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
+                <Cell key={`cell-${index}`} fill={entry.color} stroke="#181920" strokeWidth={2} />
               ))}
             </Pie>
             <Tooltip
               contentStyle={{
-                backgroundColor: '#0f172a',
-                borderColor: '#334155',
-                borderRadius: '0.5rem',
+                backgroundColor: '#181920',
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '0.75rem',
                 fontSize: '0.75rem',
                 color: '#f8fafc',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
               }}
               formatter={(value: any) => [`${Number(value || 0).toLocaleString()} citizens`, 'Exposure']}
             />

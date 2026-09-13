@@ -27,8 +27,11 @@ export const Layout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col font-sans">
-      <Navbar onToggleMobileSidebar={() => setMobileOpen((prev) => !prev)} />
+    <div className="min-h-screen bg-[#0d0e12] bg-canvas flex flex-col font-sans transition-colors duration-200">
+      <Navbar
+        onToggleMobileSidebar={() => setMobileOpen((prev) => !prev)}
+        isCollapsed={isCollapsed}
+      />
 
       <div className="flex flex-1 pt-0">
         <Sidebar
@@ -39,8 +42,8 @@ export const Layout: React.FC = () => {
         />
 
         <main
-          className={`flex-1 transition-all duration-300 min-h-[calc(100vh-4rem)] p-4 md:p-6 overflow-x-hidden ${
-            isCollapsed ? 'lg:pl-16' : 'lg:pl-64'
+          className={`flex-1 transition-[margin] duration-250 ease-out min-h-[calc(100vh-4.5rem)] p-4 sm:p-6 lg:p-8 overflow-x-hidden ${
+            isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
           }`}
         >
           <Outlet />

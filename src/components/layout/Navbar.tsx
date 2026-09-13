@@ -1,130 +1,226 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useHeatwave } from '../../context/HeatwaveContext';
+import { useAuth } from '../../context/AuthContext';
 import {
-  Flame,
+  LayoutGrid,
   Bell,
   MapPin,
-  Clock,
-  Menu,
+  Search,
+  Bot,
+  Sparkles,
+  Sun,
+  Moon,
+  X,
+  User,
+  Globe,
+  LogOut,
 } from 'lucide-react';
 import { NotificationDrawer } from '../alerts/NotificationDrawer.tsx';
+import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
+import { playToggleSound } from '../../utils/soundService';
+import { RegionSelector } from '../common/RegionSelector';
 
 interface NavbarProps {
   onToggleMobileSidebar: () => void;
+  isCollapsed?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
-  const { alerts, currentStep } = useHeatwave();
+export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollapsed = false }) => {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { alerts, setIsAgentChatOpen, activeRegion, setActiveRegion, searchQuery, setSearchQuery } = useHeatwave();
+  const { t } = useLanguage();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState<string>('');
+  const [isRegionPickerOpen, setIsRegionPickerOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
-  const activeAlertsCount = alerts.filter((a) => a.status === 'ACTIVE').length;
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(
-        now.toLocaleTimeString('en-IN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        })
-      );
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const activeAlertsCount = useMemo(() => alerts.filter((a) => a.status === 'ACTIVE').length, [alerts]);
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full h-16 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-2.5 sm:px-4 flex items-center justify-between shadow-xl">
-        {/* Left Section: Brand & Mobile Menu */}
-        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+      <header
+        className={`sticky top-0 z-30 transition-[margin] duration-250 ease-out h-18 bg-[#0d0e12] border-b border-white/[0.05] px-3 sm:px-6 flex items-center justify-between gap-3 font-sans select-none ${
+          isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        }`}
+      >
+        {/* Left Section: 4-square grid icon (mobile), notification bell, location chip */}
+        <div className="flex items-center space-x-2.5 sm:space-x-3 shrink-0">
+          {/* 4-dots Dashboard Grid Icon Button */}
           <button
             onClick={onToggleMobileSidebar}
-            className="lg:hidden p-1.5 sm:p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 focus:outline-none shrink-0"
-            aria-label="Toggle Mobile Navigation"
+            className="p-2.5 rounded-2xl bg-[#181920] border border-white/[0.06] text-slate-300 hover:text-white hover:bg-[#20222a] transition-all cursor-pointer focus:outline-none shadow-sm lg:hidden"
+            title="Toggle Menu / Navigation"
+            aria-label="Toggle Navigation"
           >
-            <Menu className="w-5 h-5" />
+            <LayoutGrid className="w-5 h-5 text-slate-300 hover:text-white" />
           </button>
 
-          <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0 flex-1">
-            <div className="p-1.5 sm:p-2 bg-gradient-to-br from-rose-500 to-amber-600 rounded-xl shadow-lg shadow-rose-950/40 ring-1 ring-white/20 shrink-0">
-              <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-white animate-pulse" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center space-x-2 min-w-0">
-                <h1 className="text-xs sm:text-sm font-extrabold tracking-tight text-white uppercase font-sans truncate min-w-0">
-                  HeatRisk <span className="text-rose-500 font-mono">EARLY WARNING</span>
-                </h1>
-                <span className="hidden md:inline-block px-2 py-0.5 text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded shrink-0">
-                  SIH 2026 DEMO
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 hidden lg:block truncate">
-                Municipal Disaster Risk & Human Mortality Prediction System
-              </p>
-            </div>
-          </div>
-
-          <div className="hidden xl:flex items-center space-x-2 bg-slate-800/80 px-3 py-1 rounded-lg border border-slate-700/60 shrink-0">
-            <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="text-xs font-semibold text-slate-200 whitespace-nowrap">Nagpur Municipal Corporation</span>
-          </div>
-        </div>
-
-        {/* Right Section: Status, Time, Notifications, User Profile */}
-        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0 ml-2">
-          {/* Live System Status & Clock */}
-          <div className="hidden md:flex items-center space-x-3 border-r border-slate-800 pr-3 sm:pr-4">
-            <div className="flex items-center space-x-1.5 text-xs text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-md border border-emerald-800/40 whitespace-nowrap">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span className="font-semibold text-[11px]">SYSTEM OPERATIONAL</span>
-            </div>
-
-            <div className="flex items-center space-x-1.5 text-xs text-slate-300 font-mono bg-slate-800/60 px-2.5 py-1 rounded-md border border-slate-700 whitespace-nowrap">
-              <Clock className="w-3.5 h-3.5 text-sky-400" />
-              <span>{currentTime}</span>
-            </div>
-          </div>
-
-          {/* Forecast Sync Timestamp */}
-          <div className="hidden lg:flex flex-col text-right text-[11px] border-r border-slate-800 pr-3 sm:pr-4">
-            <span className="text-slate-400">Forecast Timestamp</span>
-            <span className="font-mono text-slate-200 font-semibold whitespace-nowrap">
-              {currentStep ? currentStep.displayDate : 'Live Sync'}
-            </span>
-          </div>
-
-          {/* Notifications Icon Button */}
+          {/* Notification Bell Button */}
           <button
             onClick={() => setIsNotificationOpen(true)}
-            className="relative p-1.5 sm:p-2 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus:outline-none shrink-0"
+            className="relative p-2.5 rounded-2xl bg-[#181920] border border-white/[0.06] text-slate-300 hover:text-white hover:bg-[#20222a] transition-all cursor-pointer focus:outline-none shadow-sm"
+            title="Notifications & Active Alerts"
             aria-label="Open notifications"
           >
             <Bell className="w-5 h-5" />
             {activeAlertsCount > 0 && (
-              <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white ring-2 ring-slate-900 animate-bounce">
-                {activeAlertsCount}
-              </span>
+              <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-[#181920] animate-pulse" />
             )}
           </button>
 
-          {/* User / Operator Profile */}
-          <div className="flex items-center space-x-2 bg-slate-800/90 pl-1.5 sm:pl-2 pr-2 sm:pr-3 py-1 rounded-full border border-slate-700 shadow-sm shrink-0">
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-xs border border-rose-500/30 shrink-0">
-              MC
+          {/* Location Chip */}
+          <div className="hidden sm:flex items-center">
+            <RegionSelector
+              activeRegion={activeRegion}
+              onSelectRegion={(r) => setActiveRegion(r)}
+            />
+          </div>
+        </div>
+
+        {/* Center Section: Search City / Ward Pill Input */}
+        <div className="flex-1 max-w-md mx-2 hidden md:block">
+          <div className="relative flex items-center w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-4 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search City, ward, or corridor..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#181920] border border-white/[0.06] rounded-2xl pl-11 pr-10 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/60 focus:bg-[#1d1f27] transition-all shadow-inner font-sans"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Right Section: Ask AI, Theme Toggle Switch Pill, Profile Avatar */}
+        <div className="flex items-center space-x-2.5 sm:space-x-3.5 shrink-0">
+          {/* Ask AI Agent Button */}
+          <button
+            onClick={() => setIsAgentChatOpen(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-2xl bg-[#181920] hover:bg-[#20222a] text-white border border-white/[0.08] hover:border-sky-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer"
+            title="Open Heatwave Early Warning AI Agent"
+          >
+            <Bot className="w-4 h-4 text-sky-400" />
+            <span className="hidden lg:inline">{t('askAi')}</span>
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+          </button>
+
+          {/* Reference Pill Theme Toggle Switch (Crescent Moon Slider) */}
+          <button
+            onClick={() => {
+              playToggleSound();
+              toggleTheme();
+            }}
+            className="relative w-15 h-8.5 rounded-full bg-[#181920] border border-white/[0.08] p-1 flex items-center transition-colors cursor-pointer focus:outline-none shadow-inner"
+            title={resolvedTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle Theme Mode"
+          >
+            <div
+              className={`w-6.5 h-6.5 rounded-full bg-slate-100 text-slate-900 flex items-center justify-center shadow-md transition-transform duration-200 ease-out ${
+                resolvedTheme === 'dark' ? 'translate-x-6.5' : 'translate-x-0'
+              }`}
+            >
+              {resolvedTheme === 'dark' ? (
+                <Moon className="w-3.5 h-3.5 fill-slate-900 text-slate-900" />
+              ) : (
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+              )}
             </div>
-            <div className="hidden sm:block text-left">
-              <div className="text-xs font-bold text-slate-100 leading-none">Disaster Cell</div>
-              <div className="text-[10px] text-slate-400 leading-tight">Control Room Admin</div>
+          </button>
+
+          {/* User Profile Avatar with Interactive Dropdown */}
+          <div className="relative">
+            <div
+              onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+              className="relative cursor-pointer group transition-transform hover:scale-105"
+              title={`${user?.name || 'Dana Castellanos'} - ${user?.role || 'Operations Controller'}`}
+            >
+              <div className={`w-9 h-9 rounded-full bg-gradient-to-tr ${user?.avatarGradient || 'from-rose-500 via-amber-500 to-sky-500'} p-0.5 shadow-md flex items-center justify-center`}>
+                <div className="w-full h-full rounded-full bg-[#181920] flex items-center justify-center overflow-hidden">
+                  <span className="text-xs font-black text-white font-mono">
+                    {user?.initials || 'DC'}
+                  </span>
+                </div>
+              </div>
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#0d0e12]" />
             </div>
+
+            {/* Profile Dropdown Popover */}
+            {isProfileMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsProfileMenuOpen(false)}
+                />
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-[#181920] border border-white/[0.08] shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 card-highlight-rim">
+                  <div className="px-2 py-1.5 border-b border-white/[0.06] mb-2">
+                    <div className="flex items-center space-x-2">
+                      <h4 className="text-xs font-bold text-white truncate">
+                        {user?.name || 'Dana Castellanos'}
+                      </h4>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-400">
+                        ONLINE
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 truncate">
+                      {user?.role || 'Operations Controller'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
+                      {user?.officerId || 'MUNI-CTRL-0982'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        navigate('/settings');
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors flex items-center space-x-2 cursor-pointer"
+                    >
+                      <User className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Station Settings</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        navigate('/landing');
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors flex items-center space-x-2 cursor-pointer"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>View Public Landing Page</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        logout();
+                        navigate('/');
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center space-x-2 cursor-pointer border-t border-white/[0.04] mt-1 pt-2"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out / Lock Station</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
-
 
       {/* Notification Drawer */}
       <NotificationDrawer
@@ -136,3 +232,4 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 };
 
 export default Navbar;
+

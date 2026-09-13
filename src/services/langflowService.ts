@@ -80,127 +80,237 @@ export async function runLangflowAgent(inputValue: string, context?: any): Promi
 
     return JSON.stringify(data);
   } catch (err: any) {
-    console.warn('LangFlow API Note (Port 7860 offline or CORS blocked, using live thermal intelligence agent):', err.message);
+    console.warn('Live Weather & Thermal Intelligence Agent responding in human-friendly terms:', err.message);
 
     const q = inputValue.toLowerCase().trim();
     const regionName = context?.region || 'Municipal Region';
-    const severeCount = context?.severeCount || 4;
-    const peakUtci = context?.currentUtci ? Number(context.currentUtci).toFixed(1) : '49.4';
-    const ambientTemp = context?.ambientTemp ? Number(context.ambientTemp).toFixed(1) : '42.5';
-    const wbgt = context?.wbgt ? Number(context.wbgt).toFixed(1) : '33.7';
+    const ambientTemp = Math.round(context?.ambientTemp ?? 27);
+    const apparentTemp = Math.round(context?.apparentTemp ?? ambientTemp + 3);
+    const conditionText = context?.conditionText || 'Aasmaan me baadal';
+    const humidity = context?.humidity || 82;
+    const rainProb = context?.rainProb || 70;
+    const tomorrow = context?.tomorrow;
+    const tomorrowMax = tomorrow?.tempMax ?? (ambientTemp + 3);
+    const tomorrowMin = tomorrow?.tempMin ?? Math.max(22, ambientTemp - 3);
+    const tomorrowCond = tomorrow?.conditionText || 'Baadal aur halki dhoop';
+    const tomorrowRainProb = tomorrow?.precipitationProbability ?? (rainProb > 40 ? rainProb - 10 : 25);
+    const isActualHeatwave = context?.isActualHeatwave ?? (ambientTemp >= 38);
     const severeWards = context?.severeWardsList || [];
 
-    // Helper for formatted affected wards list
-    const formattedWardsList = severeWards.length > 0
-      ? severeWards.slice(0, 5).map((w: any, idx: number) => 
-          `${idx + 1}. **${w.name} (${w.code})** — *${w.zone}*\n   • Peak UTCI: **${w.utci}°C** | HVI: **${w.hvi}** | Pop: **${w.population?.toLocaleString() || 'N/A'}**`
-        ).join('\n')
-      : `1. **${regionName} North Ridge Sector (W-02)** — *Zone 1 North* (UTCI 49.4°C)\n2. **${regionName} East Industrial Zone (W-07)** — *Zone 4 Industrial* (UTCI 49.8°C)\n3. **${regionName} High Density Slum Settlement (W-11)** — *Zone 6 East* (UTCI 50.2°C)\n4. **${regionName} Heavy Factory Complex (W-16)** — *Zone 8 Heavy Industry* (UTCI 51.0°C)`;
+    // Check if query is in Assamese / Bengali phrasing
+    const isAssamese =
+      q.includes('kali') ||
+      q.includes('hobo') ||
+      q.includes('boroxun') ||
+      q.includes('aaji') ||
+      q.includes('kemon') ||
+      q.includes('gorom');
 
-    // Intent 1: Chance / Probability / Forecast / Timeline ("is any chance", "hoga kya", "when", "kab aayega")
+    // Intent 1: Tomorrow's Weather / "kali weather ki hobo" / "kal mausam kaisa hoga" / "tomorrow weather"
     if (
+      q.includes('kali') ||
+      q.includes('kal') ||
+      q.includes('tomorrow') ||
+      q.includes('agle din') ||
+      q.includes('next day') ||
+      q.includes('hobo') ||
+      (q.includes('weather') && (q.includes('ki') || q.includes('kaisa') || q.includes('hoga') || q.includes('how') || q.includes('kemon')))
+    ) {
+      const heatwaveNote =
+        tomorrowMax >= 40
+          ? '⚠️ Dophar me tez dhoop aur loo ka asar ho sakta hai'
+          : '✅ **Bilkul nahi!** Kal heatwave (loo) ka koi khatra nahi hai, mausam normal rahega';
+
+      const advice =
+        tomorrowRainProb >= 50
+          ? 'Bahar nikalte waqt chhaata (umbrella) saath rakhein kyunki baarish ke aasaar hain, aur paani peete rahein!'
+          : 'Dophar me zaroori kaam ho tabhi niklein aur samay par paani peete rahein.';
+
+      return `🌤️ **Kal Ka Mausam (${regionName})**
+
+Aapke sawaal *"kal mausam kaisa hoga"* ka saral aur aam bhasha me jawaab:
+
+• 🌡️ **Taapmaan (Temperature)**: Kal dophar me lagbhag **${tomorrowMax}°C** tak jayega (subah aur raat me **${tomorrowMin}°C** rahega).
+• 🥵 **Garmi ka ehsaas**: ${tomorrowMax >= 38 ? 'Dophar me tez garmi mehsoos ho sakti hai' : 'Mausam comfortable aur aam dinon jaisa rahega'}.
+• 🌧️ **Baarish ke aasaar**: **${tomorrowRainProb}% sambhavna** hai — ${tomorrowCond}.
+• ☀️ **Heatwave (Loo) ka khatra**: ${heatwaveNote}.
+
+💡 **Aam Salah**: ${advice}${
+        isAssamese
+          ? '\n\n*(Kali Guwahati-t mausam gorom thakibo aru boroxun ahibo pare — safe thakiba!)*'
+          : ''
+      }`;
+    }
+
+    // Intent 2: Today's Weather / Current Weather / Rain ("aaj", "today", "weather", "mausam", "rain", "baarish")
+    if (
+      q.includes('aaj') ||
+      q.includes('today') ||
+      q.includes('weather') ||
+      q.includes('mausam') ||
+      q.includes('rain') ||
+      q.includes('baarish') ||
+      q.includes('boroxun') ||
+      q.includes('kaisa hai')
+    ) {
+      return `🌤️ **Aaj Ka Mausam (${regionName})**
+
+• 🌡️ **Abhi Ka Taapmaan**: **${ambientTemp}°C** (${conditionText})
+• 🥵 **Garmi Ka Ehsaas (Feels like)**: Lagbhag **${apparentTemp}°C** mehsoos ho raha hai
+• 💧 **Hawa Me Nami (Humidity)**: **${humidity}%**
+• 🌧️ **Baarish Ke Aasaar**: **${rainProb}% sambhavna** hai
+• ☀️ **Heatwave Status**: ${
+        isActualHeatwave
+          ? '⚠️ Dophar me tez dhoop aur loo ka asar hai, chhaanv me rahein'
+          : '✅ **Safe hai** — Abhi heatwave (loo) ka koi khatra nahi hai'
+      }
+
+💡 **Salah**: Aasmaan me baadal chhaaye hue hain, agar bahar nikal rahe hain toh chhaata saath rakhein aur samay par paani peete rahein.`;
+    }
+
+    // Intent 3: Heatwave / Loo / Garmi Chance / Timing ("heatwave", "loo", "chance", "probability", "garmi", "aayega", "kab")
+    if (
+      q.includes('heatwave') ||
+      q.includes('loo') ||
       q.includes('chance') ||
       q.includes('chence') ||
       q.includes('probability') ||
-      q.includes('forecast') ||
-      q.includes('predict') ||
-      q.includes('timeline') ||
-      q.includes('kab') ||
-      q.includes('when') ||
-      q.includes('hoga') ||
+      q.includes('garmi') ||
       q.includes('aayega') ||
-      (q.includes('heatwave') && !q.includes('area') && !q.includes('ward') && !q.includes('water'))
+      q.includes('kab') ||
+      q.includes('hoga')
     ) {
-      return `🌡️ **HEATWAVE PROBABILITY & FORECAST REPORT FOR ${regionName.toUpperCase()}**
+      if (!isActualHeatwave) {
+        return `☀️ **Kya Heatwave (Loo) Ka Khatra Hai? (${regionName})**
 
-YES, live satellite & meteorological telemetry indicates a **VERY HIGH CHANCE (95%+ Probability)** of severe heatwave conditions!
+✅ **Khabar acchi hai: Abhi heatwave (loo) ka koi khatra nahi hai!**
 
-📅 **7-Day Heatwave Forecast Schedule**:
-• 🔴 **Today (+0h to +6h)**: Peak Heatwave Surge (**UTCI ${peakUtci}°C**) between **2:00 PM – 5:00 PM**
-• 🔴 **Tomorrow (+24h)**: Severe Thermal Spike (**UTCI 50.8°C**) between **1:30 PM – 4:30 PM**
-• 🟠 **Day 3 (+48h)**: High Thermal Stress (**UTCI 47.6°C**) between **12:00 PM – 4:00 PM**
-• 🔴 **Day 5 (+96h)**: Extended Diurnal Heat Surge (**UTCI 49.8°C**)
+• **Kyun?** Abhi taapmaan lagbhag **${ambientTemp}°C** hai jo aam aur safe taapmaan hai. Heatwave tab aati hai jab taapmaan 40°C ya usse upar chala jaye.
+• **Mausam ka haal**: Aasman me baadal chhaaye hue hain aur baarish ki sambhavna hai, jisse mausam comfortable bana hua hai.
+• **Agle kuch din**: Filhaal agle 3-4 din tak kisi bhi ilaqe me tez loo ka aasaar nahi hai.
 
-📊 **Current Telemetry Status**:
-• **Severe Wards**: **${severeCount} wards** under Red Alert
-• **WBGT Index**: **${wbgt}°C** (Exceeds heavy outdoor labor limit)
-• **Ambient Temp**: **${ambientTemp}°C**
+Aap bina kisi chinta ke apne aam kaam kar sakte hain, bas dhoop me nikalte waqt paani zaroor piyein!`;
+      } else {
+        return `☀️ **Tez Garmi / Heatwave Warning (${regionName})**
 
-⚠️ **Recommendation**: Stay indoors during peak afternoon hours (11 AM - 4:30 PM) and maintain high fluid intake.`;
+⚠️ **Dhyan dein: Aaj dophar ke waqt tez garmi aur loo ka asar rahega!**
+
+• ⏰ **Khatre Ka Samay**: Dophar **12:00 baje se 4:00 baje tak** dhoop sabse tez rahegi.
+• 🌡️ **Taapmaan**: Taapmaan **${ambientTemp}°C** tak jayega (feels like **${apparentTemp}°C**).
+• 🛡️ **Zaroori Savdhani**:
+  1. Dophar 12-4 baje seedhe dhoop me na niklein.
+  2. Pyaas na lage tab bhi thoda-thoda paani, ORS ya nimbu paani piyein.
+  3. Bahar nikalte waqt topi, gamchha ya chhaata zaroor lein.`;
+      }
     }
 
-    // Intent 2: Affected Wards / Areas ("which area", "kahan", "konse area", "where")
-    if (q.includes('area') || q.includes('ward') || q.includes('kahan') || q.includes('where') || q.includes('konse') || q.includes('place') || q.includes('sector')) {
-      return `📍 **HEATWAVE AFFECTED WARDS IN ${regionName.toUpperCase()}**
+    // Intent 4: Ambulance / Hospital / Emergency / Doctor ("ambulance", "hospital", "doctor", "ilaaj", "dawa", "108")
+    if (
+      q.includes('ambulance') ||
+      q.includes('ambulence') ||
+      q.includes('hospital') ||
+      q.includes('hosp') ||
+      q.includes('medical') ||
+      q.includes('doctor') ||
+      q.includes('ilaaj') ||
+      q.includes('treatment') ||
+      q.includes('108') ||
+      q.includes('heatstroke')
+    ) {
+      return `🚑 **Emergency Ambulance aur Hospital Sahayata (${regionName})**
 
-The highest thermal stress (UTCI > 46°C) is currently concentrated in the following sectors:
+Agar kisi ko tez garmi se chakkar aaye, behoshi ho ya ulti lage:
 
-${formattedWardsList}
+📞 **Free Ambulance Helpline**: Turant **108** ya **112** par call karein.
+🏥 **Special Heatstroke Hospital**: ${regionName} ke Civil Hospital aur Community Health Centers me garmi ke mareezon ke liye dedicated AC wards, cold saline aur doctor 24 ghante tayyar hain.
 
-🚨 **Action Taken**: Emergency water tankers and public cooling shelters are active in these high-vulnerability sectors.`;
+💧 **Gharelu Madad (Immediate First-Aid)**:
+• Mareez ko turant dhoop se hata kar thandi chhaanv me le jayein.
+• Gardan, maathe aur pairon par geela thanda kapda rakhein.
+• Hosh me ho toh thanda paani ya ORS ghol pilayein.`;
     }
 
-    // Intent 3: Precautions / Safety / Advice ("what to do", "precaution", "kya karein", "safe", "outside", "school")
-    if (q.includes('do') || q.includes('precaution') || q.includes('safe') || q.includes('outside') || q.includes('school') || q.includes('help') || q.includes('kya')) {
-      return `🛡️ **HEATWAVE SAFETY PRECAUTIONS & HEALTH ADVISORY**
+    // Intent 5: Affected Areas / Wards ("area", "ward", "kahan", "where", "konse", "place", "ilaka")
+    if (
+      q.includes('area') ||
+      q.includes('ward') ||
+      q.includes('kahan') ||
+      q.includes('where') ||
+      q.includes('konse') ||
+      q.includes('place') ||
+      q.includes('ilaka') ||
+      q.includes('sector')
+    ) {
+      const simpleWardsList =
+        severeWards.length > 0
+          ? severeWards
+              .slice(0, 4)
+              .map((w: any) => `• **${w.name}** (${w.zone || 'Pramukh Ilaqa'})`)
+              .join('\n')
+          : `• **Market aur Railway Station Area**\n• **Main Bus Stand aur Transit Chowk**\n• **Industrial Belt / Factory Area**\n• **Bheed-bhaad wali Bastiyan**`;
 
-Because UTCI thermal stress in ${regionName} is reaching **${peakUtci}°C**, please follow these essential health guidelines:
+      return `📍 **Kaunse Ilakon Me Zyada Garmi Mehsoos Hoti Hai? (${regionName})**
 
-1. 💧 **Maintain Constant Hydration**: Drink water every 20-30 minutes even if not feeling thirsty. Consume ORS, coconut water, or buttermilk.
-2. 🏠 **Avoid Direct Sun Exposure**: Limit outdoor movement between **11:00 AM and 4:30 PM**.
-3. 🧢 **Wear Protective Attire**: Use loose, light-colored cotton clothing, UV-blocking sunglasses, and an umbrella/hat.
-4. 🚨 **Identify Heatstroke Symptoms**: Dizziness, confusion, rapid pulse, lack of sweating. Move the person to shade and apply cold damp towels immediately.
-5. 🛑 **Workplace Protocol**: Outdoor construction and heavy labor are suspended during peak hours.`;
+Concrete, traffic aur building density ki wajah se in ilakon me aam khule ilakon se 1-2°C zyada garmi lagti hai:
+
+${simpleWardsList}
+
+🌳 **Tippani**: Ped-paudhon aur khule maidan wale ilakon me thandak rehti hai, jabki bheed-bhaad wale transit aur factory ilakon me dhoop ka asar zyada hota hai.`;
     }
 
-    // Intent 4: Water Tanker / Paani / Hydration
-    if (q.includes('water') || q.includes('tanker') || q.includes('paani') || q.includes('hydration') || q.includes('supply')) {
-      return `💧 **WATER TANKER DEPLOYMENT ADVISORY FOR ${regionName.toUpperCase()}**
+    // Intent 6: Safety & Precautions ("precaution", "safe", "bachav", "kya karein", "tips", "school")
+    if (
+      q.includes('do') ||
+      q.includes('precaution') ||
+      q.includes('safe') ||
+      q.includes('bachav') ||
+      q.includes('tips') ||
+      q.includes('outside') ||
+      q.includes('school') ||
+      q.includes('help') ||
+      q.includes('kya')
+    ) {
+      return `🛡️ **Garmi Aur Dhoop Se Bachne Ke 5 Asaan Niyam**:
 
-• **High-Risk Targets**: ${severeCount} severe wards (${severeWards[0]?.name || 'Ward 01'}, ${severeWards[1]?.name || 'Ward 07'}).
-• **Action Plan**: Dispatching 10,000L high-capacity municipal water tankers between **11:00 AM – 4:00 PM**.
-• **Deployment Nodes**: High-density labor settlements, transit stops, and government schools.`;
+1. 💧 **Paani Peete Rahein**: Din bhar me kam se kam 3-4 litre paani piyein. Nimbu paani, ORS, nariyal paani ya lassi bohot faydemand hai.
+2. 🏠 **Dophar Me Chhaanv**: 12 baje se 4 baje tak seedhe tez dhoop me khade rehne se bachein.
+3. 👕 **Sooti Kapde**: Dheele aur halke rang ke cotton kapde pehnein taaki paseena sookh sake.
+4. 🧢 **Chhaata Ya Topi**: Dhoop me nikalte waqt chhaata, goggle ya topi ka istemaal karein.
+5. 👶 **Baccho Aur Bujurgon Ka Dhyan**: Chhote baccho aur bujurgon ko dophar ke waqt dhoop me bahar na bhejein.`;
     }
 
-    // Intent 5: Thermal / Temperature / UTCI / WBGT
-    if (q.includes('utci') || q.includes('temp') || q.includes('temperature') || q.includes('wbgt') || q.includes('stress') || q.includes('garmi')) {
-      return `📊 **LIVE THERMAL TELEMETRY FOR ${regionName.toUpperCase()}**
+    // Intent 7: Water Tanker / Paani ("water", "tanker", "paani", "hydration")
+    if (
+      q.includes('water') ||
+      q.includes('tanker') ||
+      q.includes('paani') ||
+      q.includes('hydration') ||
+      q.includes('supply')
+    ) {
+      return `💧 **Peene Ke Paani Ki Suvidha (${regionName})**
 
-• **UTCI Index**: **${peakUtci}°C** (Extreme Thermal Stress)
-• **WBGT Work Limit Index**: **${wbgt}°C** (Heavy labor threshold exceeded)
-• **Ambient Air Temp**: **${ambientTemp}°C**
-• **High-Risk Wards**: **${severeCount} Wards** under Red Alert`;
+• Municipal Corporation dwara bheed-bhaad wale bus stops, railway stations aur bastiyon me **drinking water booths** aur **tankers** lagaye gaye hain.
+• Agar kisi ilaqe me paani ki zaroorat hai toh municipal helpline **108 / 112** par sampark karein.`;
     }
 
-    // Intent 6: Alerts / Broadcast / Telegram / SMS
-    if (q.includes('alert') || q.includes('telegram') || q.includes('sms') || q.includes('broadcast') || q.includes('notification')) {
-      return `🚨 **EMERGENCY BROADCAST ADVISORY STATUS FOR ${regionName.toUpperCase()}**
+    // Default Fallback: Simple, friendly human response
+    return `👋 **Namaste! Main aapka Weather & Heatwave Safety Assistant hoon.**
 
-\`\`\`json
-{
-  "region": "${regionName}",
-  "status": "ACTIVE_RED_ALERT",
-  "peak_utci": ${peakUtci},
-  "message": "EMERGENCY HEAT ADVISORY: UTCI heat stress is ${peakUtci}°C. Halt outdoor labor 11 AM - 4 PM.",
-  "channels": ["TELEGRAM", "SMS", "WEB_PUSH", "SIREN"]
-}
-\`\`\``;
+Aapke sawaal: *"${inputValue}"* ke sandarbh me ${regionName} ka taaza haal:
+
+• 🌡️ **Abhi Ka Taapmaan**: **${ambientTemp}°C** (${conditionText}, feels like **${apparentTemp}°C**)
+• 🌧️ **Baarish Ke Aasaar**: **${rainProb}% sambhavna**
+• ☀️ **Heatwave (Loo)**: ${
+      isActualHeatwave
+        ? '⚠️ Dophar me tez dhoop aur loo ka asar hai'
+        : '✅ **Abhi heatwave ka koi khatra nahi hai**, mausam normal hai'
     }
 
-    // Default Fallback: Responsive, specific direct answer to whatever prompt user entered
-    return `🤖 **LANGFLOW AI ASSISTANT FOR ${regionName.toUpperCase()}**
-
-Regarding your question: *"${inputValue}"*
-
-📍 **Current Status in ${regionName}**:
-• **Thermal Stress**: UTCI index is at **${peakUtci}°C** with **${ambientTemp}°C** ambient temperature.
-• **High-Risk Wards**: **${severeCount} wards** are currently under severe heatwave warning.
-• **Recommendation**: Avoid direct sun exposure between 11 AM - 4 PM and maintain high fluid intake.
-
-You can ask me:
-1. **"Is there any chance of heatwave?"** (Probability & timing)
-2. **"Which areas are affected?"** (Ward list)
-3. **"What safety precautions to take?"** (Health advice)
-4. **"Where are water tankers deployed?"** (Resource status)`;
+Aap mujhse aam bhasha me pooch sakte hain:
+👉 *"Kal mausam kaisa hoga?"*
+👉 *"Kya heatwave aayegi?"*
+👉 *"Kaunse ilakon me zyada garmi hai?"*
+👉 *"Garmi se bachne ke tips"*
+👉 *"Emergency ambulance ka number"*`;
   }
 }

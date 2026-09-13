@@ -40,11 +40,12 @@ export const WBGTChart: React.FC<WBGTChartProps> = ({ data }) => {
             <YAxis width={30} stroke="#94a3b8" fontSize={10} domain={[20, 40]} tickLine={false} />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#0f172a',
-                borderColor: '#334155',
-                borderRadius: '0.5rem',
+                backgroundColor: '#181920',
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '0.75rem',
                 fontSize: '0.75rem',
                 color: '#f8fafc',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
               }}
             />
             <ReferenceLine y={32} stroke="#F97316" strokeDasharray="4 4" label={{ value: 'Heavy Labor Suspension (32°C)', fill: '#F97316', fontSize: 10, position: 'top' }} />

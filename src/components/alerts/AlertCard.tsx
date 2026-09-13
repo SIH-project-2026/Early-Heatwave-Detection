@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { HeatAlert } from '../../types/alert';
 import { RiskBadge } from '../common/RiskBadge';
-import { ShieldAlert, Clock, MapPin } from 'lucide-react';
+import { ShieldAlert, Clock, MapPin, CheckCircle2, ArrowRight, Radio } from 'lucide-react';
 import { formatDateTime } from '../../utils/formatters';
+import { playToggleSound, playDispatchSound } from '../../utils/soundService';
 
 interface AlertCardProps {
   alert: HeatAlert;
@@ -17,42 +18,73 @@ export const AlertCard: React.FC<AlertCardProps> = ({
   onResolve,
   onViewWard,
 }) => {
+  const [isActing, setIsActing] = useState(false);
   const isSevere = alert.severity === 'SEVERE';
+
+  const handleAcknowledge = async () => {
+    if (!onAcknowledge || isActing) return;
+    setIsActing(true);
+    playToggleSound();
+    try {
+      await onAcknowledge(alert.id);
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const handleResolve = async () => {
+    if (!onResolve || isActing) return;
+    setIsActing(true);
+    playDispatchSound();
+    try {
+      await onResolve(alert.id);
+    } finally {
+      setIsActing(false);
+    }
+  };
 
   return (
     <div
-      className={`glass-card rounded-2xl p-5 border transition-all shadow-xl space-y-4 ${
+      className={`rounded-3xl bg-[#181920] p-5 sm:p-6 border transition-all duration-300 shadow-xl space-y-4 w-full overflow-hidden card-highlight-rim relative group ${
         isSevere && alert.status === 'ACTIVE'
-          ? 'border-rose-500/50 bg-rose-950/20 glow-severe'
-          : 'border-slate-800 hover:border-slate-700'
+          ? 'border-rose-500/40 glow-severe'
+          : 'border-white/[0.06] hover:border-white/[0.14]'
       }`}
     >
+      {/* Ambient background glow */}
+      {isSevere && alert.status === 'ACTIVE' && (
+        <div className="absolute -right-10 -top-10 w-40 h-40 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+      )}
+
+      {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="flex items-start space-x-3 min-w-0 flex-1">
           <div
-            className={`p-2.5 rounded-xl border shrink-0 ${
+            className={`w-11 h-11 rounded-2xl flex items-center justify-center border shrink-0 shadow-inner ${
               isSevere
-                ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                : 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+                ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                : 'bg-orange-500/15 text-orange-400 border-orange-500/30'
             }`}
           >
-            <ShieldAlert className="w-5 h-5" />
+            <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <RiskBadge level={alert.severity} size="sm" className="shrink-0" />
-              <span className="text-[10px] font-mono text-slate-400">
-                {alert.consecutiveHours} Consecutive Hrs Severe Stress
+              <span className="text-[11px] font-mono font-semibold text-slate-300 bg-[#13141a] px-2 py-0.5 rounded-lg border border-white/[0.05]">
+                {alert.consecutiveHours}h Consecutive Stress
               </span>
             </div>
-            <h3 className="text-base font-bold text-white mt-1 leading-snug">{alert.title}</h3>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 mt-1">
-              <span className="flex items-center space-x-1">
+            <h3 className="text-base sm:text-lg font-bold text-white mt-1 leading-snug break-words">
+              {alert.title}
+            </h3>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 mt-1.5 font-medium">
+              <span className="flex items-center space-x-1.5 min-w-0 truncate">
                 <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="font-semibold text-slate-300">{alert.wardName}</span>
+                <span className="font-semibold text-slate-200 truncate">{alert.wardName}</span>
               </span>
-              <span>•</span>
-              <span className="flex items-center space-x-1 font-mono">
+              <span className="text-slate-600 hidden xs:inline">•</span>
+              <span className="flex items-center space-x-1 font-mono text-xs text-slate-400 shrink-0">
                 <Clock className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                 <span>{formatDateTime(alert.timestamp)}</span>
               </span>
@@ -62,92 +94,123 @@ export const AlertCard: React.FC<AlertCardProps> = ({
 
         {/* Status Badge */}
         <span
-          className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 self-start ${
+          className={`px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase shrink-0 self-start flex items-center space-x-1.5 shadow-sm ${
             alert.status === 'ACTIVE'
-              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse'
+              ? 'bg-rose-500/15 text-rose-300 border border-rose-500/35 animate-pulse'
               : alert.status === 'ACKNOWLEDGED'
-              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-              : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+              : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
           }`}
         >
-          {alert.status}
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              alert.status === 'ACTIVE'
+                ? 'bg-rose-400 animate-ping'
+                : alert.status === 'ACKNOWLEDGED'
+                ? 'bg-amber-400'
+                : 'bg-emerald-400'
+            }`}
+          />
+          <span>{alert.status}</span>
         </span>
       </div>
 
-
-      {/* Metric Callouts */}
-      <div className="grid grid-cols-3 gap-2 bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-xs font-mono">
-        <div>
-          <span className="text-[10px] text-slate-400 block font-sans">UTCI Score</span>
-          <span className="font-extrabold text-rose-400 text-sm">{alert.utci}°C</span>
+      {/* Metric Callouts: 3-column grid */}
+      <div className="grid grid-cols-3 gap-2.5 bg-[#13141a] p-3 sm:p-3.5 rounded-2xl border border-white/[0.05] text-xs font-mono">
+        <div className="min-w-0">
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block truncate">
+            UTCI Index
+          </span>
+          <span className="font-black text-rose-400 text-sm sm:text-base mt-0.5 block font-mono">
+            {alert.utci}°C
+          </span>
         </div>
-        <div>
-          <span className="text-[10px] text-slate-400 block font-sans">WBGT Score</span>
-          <span className="font-extrabold text-orange-400 text-sm">{alert.wbgt}°C</span>
+        <div className="min-w-0">
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block truncate">
+            WBGT Index
+          </span>
+          <span className="font-black text-orange-400 text-sm sm:text-base mt-0.5 block font-mono">
+            {alert.wbgt}°C
+          </span>
         </div>
-        <div>
-          <span className="text-[10px] text-slate-400 block font-sans">Air Temp</span>
-          <span className="font-extrabold text-amber-400 text-sm">{alert.tempC}°C</span>
+        <div className="min-w-0">
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block truncate">
+            Air Temp
+          </span>
+          <span className="font-black text-amber-400 text-sm sm:text-base mt-0.5 block font-mono">
+            {alert.tempC}°C
+          </span>
         </div>
       </div>
 
       {/* Description */}
-      <p className="text-xs text-slate-300 leading-relaxed">{alert.description}</p>
+      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed break-words font-medium">
+        {alert.description}
+      </p>
 
       {/* Recommended Emergency Actions */}
-      <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-          Recommended Municipal Actions
+      <div className="bg-[#13141a] p-3.5 rounded-2xl border border-white/[0.05] space-y-2">
+        <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block font-mono">
+          Recommended Municipal Response
         </span>
-        <ul className="space-y-1 text-xs text-slate-200">
+        <ul className="space-y-1.5 text-xs text-slate-300">
           {alert.recommendedActions.map((action, idx) => (
-            <li key={idx} className="flex items-start space-x-1.5">
-              <span className="text-rose-400 font-bold">•</span>
-              <span>{action}</span>
+            <li key={idx} className="flex items-start space-x-2">
+              <span className="text-rose-400 font-bold shrink-0 leading-tight">•</span>
+              <span className="break-words flex-1 leading-relaxed">{action}</span>
             </li>
           ))}
         </ul>
       </div>
 
       {/* Broadcast Channels & Action Buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3.5 border-t border-white/[0.06]">
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 min-w-0">
-          <span className="shrink-0 font-medium">Active Channels:</span>
+          <span className="font-mono text-[10px] uppercase text-slate-400 shrink-0">Transmission:</span>
           {alert.channels.map((ch) => (
             <span
               key={ch}
-              className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 font-mono text-[10px] shrink-0 border border-slate-700/60"
+              className="px-2 py-0.5 rounded-lg bg-[#13141a] text-slate-300 text-[10px] font-mono border border-white/[0.05]"
             >
               {ch}
             </span>
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0 sm:ml-auto">
+        {/* Action buttons: mobile friendly & responsive */}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-auto">
           {onViewWard && (
             <button
               onClick={() => onViewWard(alert.wardId)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold shrink-0 transition-colors"
+              className="flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl bg-[#13141a] hover:bg-white/[0.06] text-slate-200 text-xs font-semibold shrink-0 transition-all cursor-pointer active:scale-95 flex items-center justify-center space-x-1.5 shadow-sm border border-white/[0.06]"
+              title="Inspect ward on GIS map"
             >
-              View Ward
+              <span>View Ward Map</span>
+              <ArrowRight className="w-3.5 h-3.5 text-sky-400" />
             </button>
           )}
 
           {alert.status === 'ACTIVE' && onAcknowledge && (
             <button
-              onClick={() => onAcknowledge(alert.id)}
-              className="px-3 py-1.5 rounded-lg bg-amber-600/30 hover:bg-amber-600/40 text-amber-300 text-xs font-bold border border-amber-500/40 shrink-0 transition-colors"
+              onClick={handleAcknowledge}
+              disabled={isActing}
+              className="flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-bold border border-amber-500/30 shrink-0 transition-all cursor-pointer active:scale-95 flex items-center justify-center space-x-1.5 shadow-sm"
+              title="Acknowledge alert receipt"
             >
-              Acknowledge
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Acknowledge</span>
             </button>
           )}
 
           {alert.status !== 'RESOLVED' && onResolve && (
             <button
-              onClick={() => onResolve(alert.id)}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shrink-0 transition-colors"
+              onClick={handleResolve}
+              disabled={isActing}
+              className="flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs font-black shadow-lg shadow-emerald-950/50 shrink-0 transition-all cursor-pointer active:scale-95 flex items-center justify-center space-x-1.5"
+              title="Mark alert as resolved"
             >
-              Resolve
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Resolve Alert</span>
             </button>
           )}
         </div>
@@ -155,4 +218,3 @@ export const AlertCard: React.FC<AlertCardProps> = ({
     </div>
   );
 };
-

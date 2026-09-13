@@ -1,6 +1,6 @@
 import type { RiskLevel } from './risk';
 
-export type MarkerType = 'WARD' | 'WATER_TANKER' | 'COOLING_CENTER' | 'ALERT';
+export type MarkerType = 'WARD' | 'WATER_TANKER' | 'COOLING_CENTER' | 'ALERT' | 'AMBULANCE' | 'HOSPITAL';
 
 export interface LocationItem {
   id: string;
