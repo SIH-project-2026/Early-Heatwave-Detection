@@ -6,10 +6,10 @@
     --color-moderate: #F59E0B;
     --color-high: #F97316;
     --color-severe: #EF4444;
-    --card-bg: #161922;
-    --card-border: #232838;
-    --card-inner-bg: #12151e;
-    --card-inner-border: #232838;
+    --card-bg: #08090c;
+    --card-border: #1a1c24;
+    --card-inner-bg: #000000;
+    --card-inner-border: #161820;
     --card-radius: 20px;
   }
   
@@ -22,7 +22,7 @@
   }
 
   body {
-    background-color: #0b0d14;
+    background-color: #000000;
     color: #f8fafc;
     min-height: 100vh;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Plus Jakarta Sans', sans-serif;
@@ -65,16 +65,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: #000000;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 1);
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* MapLibre dark popup overrides & responsive bounds */
@@ -84,11 +84,11 @@
 }
 
 .maplibregl-popup-content {
-  background-color: #181920 !important;
+  background-color: #08090c !important;
   color: #f8fafc !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 1rem !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.8) !important;
   padding: 0.75rem 1rem !important;
   max-width: 100% !important;
   word-break: break-word !important;
@@ -97,24 +97,40 @@
 }
 
 .maplibregl-popup-anchor-top .maplibregl-popup-tip {
-  border-bottom-color: #181920 !important;
+  border-bottom-color: #08090c !important;
 }
 .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
-  border-top-color: #181920 !important;
+  border-top-color: #08090c !important;
 }
 .maplibregl-popup-anchor-left .maplibregl-popup-tip {
-  border-right-color: #181920 !important;
+  border-right-color: #08090c !important;
 }
 .maplibregl-popup-anchor-right .maplibregl-popup-tip {
-  border-left-color: #181920 !important;
+  border-left-color: #08090c !important;
 }
 
 
 /* =========================================================
-   DARK THEME BASELINE (Only when dark mode is active)
+   DARK THEME BASELINE (Pure Black AMOLED Mode)
    ========================================================= */
 
-/* In dark mode, all elevated card surfaces match deep matte #161922 and border #232838 */
+/* Canvas / Background in dark mode: pure AMOLED black */
+html.dark body,
+html:not(.light) body,
+html.dark .bg-canvas,
+html.dark [class*="bg-[#0d0e12]"],
+html.dark [class*="bg-[#0b0d14]"],
+html.dark [class*="bg-[#0d1017]"],
+html.dark [class*="bg-[#0b0c10]"],
+html:not(.light) .bg-canvas,
+html:not(.light) [class*="bg-[#0d0e12]"],
+html:not(.light) [class*="bg-[#0b0d14]"],
+html:not(.light) [class*="bg-[#0d1017]"],
+html:not(.light) [class*="bg-[#0b0c10]"] {
+  background-color: #000000 !important;
+}
+
+/* In dark mode, all elevated card surfaces match pure jet black #08090c and crisp dark border #1a1c24 */
 html.dark .bg-\[\#181920\],
 html.dark [class*="bg-[#181920]"],
 html.dark [class*="bg-[#161922]"],
@@ -127,14 +143,14 @@ html:not(.light) [class*="bg-[#161922]"],
 html:not(.light) .card-highlight-rim,
 html:not(.light) .glass-panel,
 html:not(.light) .glass-card {
-  background-color: #161922 !important;
-  border-color: #232838 !important;
+  background-color: #08090c !important;
+  border-color: #1a1c24 !important;
   border-radius: 20px !important;
 }
 
 html.dark .card-highlight-rim:hover,
 html:not(.light) .card-highlight-rim:hover {
-  border-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 /* Inner card boxes, inputs & nested containers in dark mode */
@@ -142,12 +158,27 @@ html.dark .bg-\[\#13141a\],
 html.dark [class*="bg-[#13141a]"],
 html.dark [class*="bg-[#12151e]"],
 html.dark [class*="bg-[#12151f]"],
+html.dark [class*="bg-[#0f121a]"],
 html:not(.light) .bg-\[\#13141a\],
 html:not(.light) [class*="bg-[#13141a]"],
 html:not(.light) [class*="bg-[#12151e]"],
-html:not(.light) [class*="bg-[#12151f]"] {
-  background-color: #12151e !important;
-  border-color: #232838 !important;
+html:not(.light) [class*="bg-[#12151f]"],
+html:not(.light) [class*="bg-[#0f121a]"] {
+  background-color: #000000 !important;
+  border-color: #161820 !important;
+}
+
+/* Button & Pill accents in dark mode */
+html.dark [class*="bg-[#20222a]"],
+html.dark [class*="bg-[#252732]"],
+html:not(.light) [class*="bg-[#20222a]"],
+html:not(.light) [class*="bg-[#252732]"] {
+  background-color: #161820 !important;
+}
+
+html.dark [class*="hover:bg-[#20222a]"]:hover,
+html:not(.light) [class*="hover:bg-[#20222a]"]:hover {
+  background-color: #1c1e28 !important;
 }
 
 /* Card rounded corner uniformity */
@@ -163,13 +194,17 @@ html.dark .border-white\/\[0\.05\],
 html.dark .border-white\/\[0\.07\],
 html.dark .border-white\/\[0\.04\],
 html.dark .border-slate-800,
+html.dark [class*="border-[#232838]"],
+html.dark [class*="divide-[#232838]"],
 html:not(.light) .border-white\/\[0\.08\],
 html:not(.light) .border-white\/\[0\.06\],
 html:not(.light) .border-white\/\[0\.05\],
 html:not(.light) .border-white\/\[0\.07\],
 html:not(.light) .border-white\/\[0\.04\],
-html:not(.light) .border-slate-800 {
-  border-color: #232838 !important;
+html:not(.light) .border-slate-800,
+html:not(.light) [class*="border-[#232838]"],
+html:not(.light) [class*="divide-[#232838]"] {
+  border-color: #1a1c24 !important;
 }
 
 /* Chart grid lines & horizontal dividers in dark mode */
@@ -179,29 +214,66 @@ html.dark .border-t.border-white\/\[0\.08\],
 html.dark .border-b.border-white\/\[0\.08\],
 html.dark .border-t.border-slate-800,
 html.dark .border-b.border-slate-800,
+html.dark .border-t.border-\[\#232838\],
+html.dark .border-b.border-\[\#232838\],
 html:not(.light) .border-t.border-white\/\[0\.06\],
 html:not(.light) .border-b.border-white\/\[0\.06\],
 html:not(.light) .border-t.border-white\/\[0\.08\],
 html:not(.light) .border-b.border-white\/\[0\.08\],
 html:not(.light) .border-t.border-slate-800,
-html:not(.light) .border-b.border-slate-800 {
-  border-color: #232838 !important;
+html:not(.light) .border-b.border-slate-800,
+html:not(.light) .border-t.border-\[\#232838\],
+html:not(.light) .border-b.border-\[\#232838\] {
+  border-color: #1a1c24 !important;
 }
 
 /* Glassmorphism helpers */
 html.dark .glass-panel,
 html:not(.light) .glass-panel {
-  background: #161922;
+  background: #08090c;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid #232838;
+  border: 1px solid #1a1c24;
 }
 
 html.dark .glass-card,
 html:not(.light) .glass-card {
-  background: #161922;
+  background: #08090c;
   backdrop-filter: blur(8px);
-  border: 1px solid #232838;
+  border: 1px solid #1a1c24;
+}
+
+/* Live Weather Hero Featured Card in Pure Black Mode */
+html.dark div[class*="from-[#607a93]"],
+html:not(.light) div[class*="from-[#607a93]"] {
+  background: linear-gradient(135deg, #101217 0%, #040507 100%) !important;
+  border-color: #20222a !important;
+}
+html.dark div[class*="from-[#607a93]"] span.text-slate-950,
+html.dark div[class*="from-[#607a93]"] span.text-slate-900,
+html:not(.light) div[class*="from-[#607a93]"] span.text-slate-950,
+html:not(.light) div[class*="from-[#607a93]"] span.text-slate-900 {
+  color: #ffffff !important;
+}
+html.dark div[class*="from-[#607a93]"] span.text-slate-800,
+html.dark div[class*="from-[#607a93]"] div.text-slate-800,
+html:not(.light) div[class*="from-[#607a93]"] span.text-slate-800,
+html:not(.light) div[class*="from-[#607a93]"] div.text-slate-800 {
+  color: #94a3b8 !important;
+}
+html.dark div[class*="from-[#607a93]"] strong.text-slate-950,
+html:not(.light) div[class*="from-[#607a93]"] strong.text-slate-950 {
+  color: #f8fafc !important;
+}
+html.dark div[class*="from-[#607a93]"] .border-slate-900\/15,
+html:not(.light) div[class*="from-[#607a93]"] .border-slate-900\/15 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Analytics gradient cards in dark mode */
+html.dark [class*="from-[#181920]"],
+html:not(.light) [class*="from-[#181920]"] {
+  background: linear-gradient(135deg, #08090c 0%, #020304 100%) !important;
 }
 
 /* Pulse animation for severe alerts */
@@ -220,11 +292,7 @@ html:not(.light) .glass-card {
 
 /* GPU Hardware Acceleration for Buttery-Smooth 60FPS Transitions */
 .glass-panel,
-.glass-card,
-header,
-aside,
-main {
-  transform: translateZ(0);
+.glass-card {
   backface-visibility: hidden;
 }
 
@@ -985,29 +1053,37 @@ html.light .glass-toolbar {
 
 /* Reference Dashboard Theme Tokens & Widget Classes */
 .bg-canvas {
-  background-color: #0d0e12;
+  background-color: #000000;
 }
 
 .bg-card-dark {
-  background-color: #181920;
+  background-color: #08090c;
 }
 
 .bg-card-inner {
-  background-color: #13141a;
+  background-color: #000000;
 }
 
 .border-card-subtle {
-  border-color: rgba(255, 255, 255, 0.05);
+  border-color: #1a1c24;
 }
 
 .bg-featured-weather {
-  background: linear-gradient(135deg, #748e9f 0%, #8ca4b4 100%);
-  color: #111827;
+  background: linear-gradient(135deg, #101217 0%, #040507 100%);
+  color: #f8fafc;
 }
 
 /* Subtle glass highlight */
 .card-highlight-rim {
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Ensure 'Use Ctrl + scroll to zoom' overlay is completely removed */
+.maplibregl-cooperative-gesture-screen {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 

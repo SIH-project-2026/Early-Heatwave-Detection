@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useHeatwave } from '../../context/HeatwaveContext';
 import { X, Bell, CheckCircle2, Siren } from 'lucide-react';
 import { formatDateTime } from '../../utils/formatters';
@@ -14,15 +15,32 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
   const { alerts, acknowledgeAlert } = useHeatwave();
   const navigate = useNavigate();
 
+  // Lock background scroll and listen for Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const activeAlerts = alerts.filter((a) => a.status !== 'RESOLVED');
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] overflow-hidden" role="dialog" aria-modal="true">
       <div
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
       />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
@@ -99,7 +117,8 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { EmergencyResource } from '../../types/resource';
 import { X, Truck, CheckCircle2, AlertTriangle, Send, Siren, Building2 } from 'lucide-react';
 import { formatNumber } from '../../utils/formatters';
@@ -17,6 +18,27 @@ export const DispatchModal: React.FC<DispatchModalProps> = ({
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dispatchedSuccess, setDispatchedSuccess] = useState(false);
+
+  // Lock background scrolling and support Escape key dismiss while modal is active
+  useEffect(() => {
+    if (!resource) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [resource, onClose]);
 
   if (!resource) return null;
 
@@ -47,9 +69,17 @@ export const DispatchModal: React.FC<DispatchModalProps> = ({
     return 'Emergency Resource Dispatch';
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-sans select-none">
-      <div className="bg-[#181920] w-full max-w-md rounded-3xl p-6 border border-white/[0.08] shadow-2xl space-y-4 card-highlight-rim">
+  return createPortal(
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-sans select-none overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#181920] w-full max-w-md rounded-3xl p-6 border border-white/[0.08] shadow-2xl space-y-4 card-highlight-rim my-auto"
+      >
         <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
           <div className="flex items-center space-x-2.5">
             {getHeaderIcon()}
@@ -173,6 +203,7 @@ export const DispatchModal: React.FC<DispatchModalProps> = ({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

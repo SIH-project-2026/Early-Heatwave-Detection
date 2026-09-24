@@ -30,20 +30,28 @@ export const AnalyticsPage: React.FC = () => {
   const { user } = useAuth();
   const roleType = user?.roleType || 'controller';
 
-  const { wards, currentStep } = useHeatwave();
+  const { wards, currentStep, activeRegion } = useHeatwave();
   const [timeSeries, setTimeSeries] = useState<ForecastTimeSeriesPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Comparison selector state
-  const [wardAId, setWardAId] = useState<string>(wards[0]?.id || 'WARD-23');
-  const [wardBId, setWardBId] = useState<string>(wards[1]?.id || 'WARD-11');
+  const [wardAId, setWardAId] = useState<string>(wards[0]?.id || 'W-01');
+  const [wardBId, setWardBId] = useState<string>(wards[1]?.id || 'W-02');
 
   useEffect(() => {
-    weatherService.getTimeSeriesData().then((data) => {
+    if (wards.length > 0) {
+      if (!wards.some((w) => w.id === wardAId)) setWardAId(wards[0].id);
+      if (!wards.some((w) => w.id === wardBId)) setWardBId(wards[1]?.id || wards[0].id);
+    }
+  }, [wards]);
+
+  useEffect(() => {
+    setLoading(true);
+    weatherService.getTimeSeriesData(activeRegion, wards).then((data) => {
       setTimeSeries(data);
       setLoading(false);
     });
-  }, []);
+  }, [activeRegion, wards]);
 
   if (loading) return <LoadingState message="Calculating thermal climate indices & population exposure..." />;
 

@@ -557,37 +557,43 @@ export const LocationDetails: React.FC<LocationDetailsProps> = ({
         )}
       </div>
 
-      {/* 3. PINNED BOTTOM ACTION BUTTONS (Always accessible) */}
-      <div className="p-3.5 sm:p-4 border-t border-white/[0.08] bg-[#181920] shrink-0 z-10">
+      {/* 3. PINNED BOTTOM ACTION BUTTONS (Always accessible & fully responsive) */}
+      <div className="p-3 sm:p-4 border-t border-white/[0.08] bg-[#181920] shrink-0 z-10">
         <div className="grid grid-cols-3 gap-2">
           <button
+            type="button"
+            id="btn-ward-forecast"
             onClick={() => navigate('/analytics')}
-            className="px-2.5 py-2.5 rounded-xl bg-[#13141a] hover:bg-white/[0.06] text-slate-200 font-bold text-xs transition-all flex items-center justify-center space-x-1.5 border border-white/[0.08] cursor-pointer"
+            className="px-2 sm:px-2.5 py-2.5 rounded-xl bg-[#13141a] hover:bg-white/[0.08] active:scale-[0.97] text-slate-200 font-bold text-xs transition-all flex items-center justify-center space-x-1 sm:space-x-1.5 border border-white/[0.08] hover:border-white/20 cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400/40"
+            title="View Weather & Risk Forecast Analytics"
           >
-            <TrendingUp className="w-3.5 h-3.5 text-sky-400" />
-            <span>Forecast</span>
+            <TrendingUp className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span className="truncate">Forecast</span>
           </button>
 
           <button
-            onClick={() => {
-              if (onDispatchResource) onDispatchResource(location.id);
-              else navigate('/resources');
-            }}
-            className="px-2.5 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold text-xs transition-all flex items-center justify-center space-x-1.5 border border-amber-500/30 cursor-pointer"
+            type="button"
+            id="btn-ward-resources"
+            onClick={() => navigate('/resources')}
+            className="px-2 sm:px-2.5 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 active:scale-[0.97] text-amber-300 font-bold text-xs transition-all flex items-center justify-center space-x-1 sm:space-x-1.5 border border-amber-500/30 hover:border-amber-400/60 cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+            title="View Emergency Resources & Fleet"
           >
-            <Truck className="w-3.5 h-3.5 text-amber-400" />
-            <span>Resources</span>
+            <Truck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate">Resources</span>
           </button>
 
           <button
+            type="button"
+            id="btn-ward-alert"
             onClick={() => {
-              if (onSendAlert) onSendAlert(location);
+              if (onSendAlert) onSendAlert(wardProp || location);
               else navigate('/alerts');
             }}
-            className="px-2.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-all flex items-center justify-center space-x-1.5 shadow-md shadow-rose-950/50 cursor-pointer"
+            className="px-2 sm:px-3 py-2.5 sm:py-3 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-[0.97] text-white font-bold text-xs transition-all flex items-center justify-center space-x-1 sm:space-x-1.5 shadow-md shadow-rose-950/50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-400/40 min-h-[42px]"
+            title="Broadcast Heatwave Alert"
           >
-            <Siren className="w-3.5 h-3.5" />
-            <span>Alert</span>
+            <Siren className="w-4 h-4 shrink-0" />
+            <span className="font-bold">Alert</span>
           </button>
         </div>
       </div>

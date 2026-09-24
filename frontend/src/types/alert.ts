@@ -16,4 +16,5 @@ export interface HeatAlert {
   timestamp: string;
   status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
   channels: ('TELEGRAM' | 'SMS' | 'WEB_PUSH' | 'MUNICIPAL_BROADCAST')[];
+  regionId?: string;
 }

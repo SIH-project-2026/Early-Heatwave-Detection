@@ -10,6 +10,13 @@ export interface DailyForecastItem {
   precipitationMm: number;
 }
 
+export interface HourlyRainItem {
+  hour: string;
+  label: string;
+  prob: number;
+  rainMm: number;
+}
+
 export interface RainAlertData {
   hasAlert: boolean;
   level: 'CRITICAL' | 'WARNING' | 'ADVISORY' | 'NONE';
@@ -31,6 +38,13 @@ export interface LiveWeatherData {
   apparentTempC: number; // UTCI equivalent / feels-like
   humidity: number;
   windSpeed: number; // km/h
+  windDirection: string; // e.g. "N-E", "ENE", "SW"
+  surfacePressure: number; // in hPa / mb
+  sunrise: string; // "06:05 AM"
+  sunset: string; // "06:28 PM"
+  uvIndex: number;
+  visibilityKm: number;
+  dewPointC: number;
   wbgtIndex: number;
   hviScore: number;
   riskLevel: 'SEVERE' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -43,6 +57,8 @@ export interface LiveWeatherData {
   rainAlert: RainAlertData;
   heatAlert: HeatAlertData;
   dailyForecast: DailyForecastItem[];
+  hourlyRain: HourlyRainItem[];
+  hourlyWind: number[];
   hourlyForecast?: {
     time: string[];
     temperature_2m: number[];
@@ -82,6 +98,32 @@ export function parseWmoWeatherCode(code: number): { condition: string; icon: Li
   return { condition: 'Mostly Cloudy', icon: 'partly-cloudy' };
 }
 
+export function getWindDirection(deg: number): string {
+  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const index = Math.round((deg % 360) / 22.5) % 16;
+  return directions[index];
+}
+
+export function calculateDewPoint(tempC: number, humidityPct: number): number {
+  const a = 17.27;
+  const b = 237.7;
+  const clampedH = Math.max(1, Math.min(100, humidityPct));
+  const alpha = ((a * tempC) / (b + tempC)) + Math.log(clampedH / 100.0);
+  const dp = (b * alpha) / (a - alpha);
+  return Math.round(dp);
+}
+
+export function formatSunTime(isoOrTimeStr?: string, defaultStr: string = '06:00 AM'): string {
+  if (!isoOrTimeStr) return defaultStr;
+  try {
+    const d = new Date(isoOrTimeStr);
+    if (isNaN(d.getTime())) return defaultStr;
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  } catch {
+    return defaultStr;
+  }
+}
+
 const WEATHER_API_KEY =
   import.meta.env.VITE_WEATHER_API_KEY ||
   import.meta.env.WEATHER_API_KEY ||
@@ -103,7 +145,7 @@ export async function fetchLiveWeatherForCoords(lat: number, lng: number, placeN
 
   // 1. Fetch Open-Meteo High-Resolution Live & Daily Forecast API
   try {
-    const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto`;
+    const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,uv_index,visibility,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset,uv_index_max&timezone=auto`;
     const res = await fetch(omUrl);
     if (res.ok) {
       openMeteoData = await res.json();
@@ -283,11 +325,116 @@ export async function fetchLiveWeatherForCoords(lat: number, lng: number, placeN
   else if (hviScore >= 0.60 || apparentTempC >= 40) riskLevel = 'HIGH';
   else if (hviScore >= 0.40 || apparentTempC >= 32) riskLevel = 'MODERATE';
 
+  const hourly = openMeteoData?.hourly || {};
+
+  // Surface pressure in hPa
+  let surfacePressure = 1012;
+  if (typeof currentOM.surface_pressure === 'number') {
+    surfacePressure = Math.round(currentOM.surface_pressure);
+  } else if (typeof currentOWM.pressure === 'number') {
+    surfacePressure = Math.round(currentOWM.pressure);
+  }
+
+  // Wind direction
+  let windDirection = 'N-E';
+  if (typeof currentOM.wind_direction_10m === 'number') {
+    windDirection = getWindDirection(currentOM.wind_direction_10m);
+  } else if (typeof owmData?.wind?.deg === 'number') {
+    windDirection = getWindDirection(owmData.wind.deg);
+  }
+
+  // Sunrise and Sunset times
+  const sunrise = formatSunTime(
+    daily.sunrise?.[0] || (owmData?.sys?.sunrise ? new Date(owmData.sys.sunrise * 1000).toISOString() : undefined),
+    '06:05 AM'
+  );
+  const sunset = formatSunTime(
+    daily.sunset?.[0] || (owmData?.sys?.sunset ? new Date(owmData.sys.sunset * 1000).toISOString() : undefined),
+    '06:28 PM'
+  );
+
+  // Accurate Dew Point
+  const dewPointC = calculateDewPoint(tempC, humidity);
+
+  // Find index in hourly arrays corresponding to current local hour
+  const nowIsoHour = new Date().toISOString().slice(0, 13);
+  let curHourIdx = new Date().getHours();
+  if (Array.isArray(hourly.time)) {
+    const foundIdx = hourly.time.findIndex((t: string) => t.startsWith(nowIsoHour));
+    if (foundIdx !== -1) curHourIdx = foundIdx;
+  }
+
+  // UV Index
+  let uvIndex = 5.5;
+  if (Array.isArray(hourly.uv_index) && typeof hourly.uv_index[curHourIdx] === 'number') {
+    uvIndex = Number(hourly.uv_index[curHourIdx].toFixed(1));
+    if (uvIndex === 0 && Array.isArray(daily.uv_index_max) && typeof daily.uv_index_max[0] === 'number' && daily.uv_index_max[0] > 0) {
+      uvIndex = Number((daily.uv_index_max[0] * 0.65).toFixed(1));
+    }
+  } else if (Array.isArray(daily.uv_index_max) && typeof daily.uv_index_max[0] === 'number') {
+    uvIndex = Number(daily.uv_index_max[0].toFixed(1));
+  }
+
+  // Atmospheric Visibility in km
+  let visibilityKm = 8;
+  if (Array.isArray(hourly.visibility) && typeof hourly.visibility[curHourIdx] === 'number') {
+    visibilityKm = Math.max(1, Math.round(hourly.visibility[curHourIdx] / 1000));
+  } else if (typeof owmData?.visibility === 'number') {
+    visibilityKm = Math.max(1, Math.round(owmData.visibility / 1000));
+  }
+
+  // Dynamic Next 6-Hour Precipitation Probability Timeline
+  const hourlyRain: HourlyRainItem[] = [];
+  if (Array.isArray(hourly.time) && Array.isArray(hourly.precipitation_probability)) {
+    const startIdx = curHourIdx;
+    for (let i = startIdx; i < Math.min(startIdx + 6, hourly.time.length); i++) {
+      const timeStr = hourly.time[i];
+      const d = new Date(timeStr);
+      const label = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      hourlyRain.push({
+        hour: timeStr,
+        label,
+        prob: Math.round(hourly.precipitation_probability[i] ?? 10),
+        rainMm: Number((hourly.precipitation?.[i] ?? 0).toFixed(1)),
+      });
+    }
+  }
+  if (hourlyRain.length === 0) {
+    const currentHour = new Date().getHours();
+    for (let i = 0; i < 6; i++) {
+      const h = (currentHour + i) % 24;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const displayH = h % 12 === 0 ? 12 : h % 12;
+      hourlyRain.push({
+        hour: `${h}:00`,
+        label: `${String(displayH).padStart(2, '0')} ${period}`,
+        prob: todayProb,
+        rainMm: todayRainMm,
+      });
+    }
+  }
+
+  // Dynamic 17-bar Wind Waveform based on hourly wind speed progression
+  const hourlyWind: number[] = [];
+  if (Array.isArray(hourly.wind_speed_10m)) {
+    const startIdx = Math.max(0, curHourIdx - 6);
+    for (let i = startIdx; i < Math.min(startIdx + 17, hourly.wind_speed_10m.length); i++) {
+      hourlyWind.push(Number(hourly.wind_speed_10m[i].toFixed(1)));
+    }
+  }
+
   const result: LiveWeatherData = {
     temperatureC: tempC,
     apparentTempC,
     humidity,
     windSpeed,
+    windDirection,
+    surfacePressure,
+    sunrise,
+    sunset,
+    uvIndex,
+    visibilityKm,
+    dewPointC,
     wbgtIndex,
     hviScore,
     riskLevel,
@@ -300,6 +447,16 @@ export async function fetchLiveWeatherForCoords(lat: number, lng: number, placeN
     rainAlert,
     heatAlert,
     dailyForecast,
+    hourlyRain,
+    hourlyWind,
+    hourlyForecast: openMeteoData?.hourly
+      ? {
+          time: openMeteoData.hourly.time || [],
+          temperature_2m: openMeteoData.hourly.temperature_2m || [],
+          apparent_temperature: openMeteoData.hourly.apparent_temperature || [],
+          relative_humidity_2m: openMeteoData.hourly.relative_humidity_2m || [],
+        }
+      : undefined,
   };
 
   weatherCache.set(cacheKey, { data: result, expires: Date.now() + WEATHER_CACHE_TTL });

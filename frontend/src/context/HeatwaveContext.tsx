@@ -6,11 +6,13 @@ import type { HeatAlert } from '../types/alert';
 import type { RiskLevel } from '../types/risk';
 import type { LocationItem } from '../types/location';
 import { MUNICIPAL_REGIONS, type MunicipalRegion } from '../types/region';
+import { getAllRegions, saveCustomRegion } from '../services/regionStorageService';
 import { wardService } from '../services/wardService';
 import { weatherService } from '../services/weatherService';
 import { resourceService } from '../services/resourceService';
 import { alertService } from '../services/alertService';
-import { wardToLocationItem, enrichLocationWithLiveWeather } from '../services/locationService';
+import { wardToLocationItem, enrichLocationWithLiveWeather, KNOWN_INDIAN_LOCATIONS } from '../services/locationService';
+import { fetchLiveWeatherForCoords } from '../services/liveWeatherService';
 
 interface HeatwaveContextType {
   wards: Ward[];
@@ -40,7 +42,7 @@ interface HeatwaveContextType {
   dispatchResource: (id: string) => Promise<void>;
   acknowledgeAlert: (id: string) => Promise<void>;
   resolveAlert: (id: string) => Promise<void>;
-  sendBroadcastAlert: (payload: { wardId: string; title: string; message: string; channels: string[] }) => Promise<void>;
+  sendBroadcastAlert: (payload: any) => Promise<any>;
   refreshData: () => Promise<void>;
 }
 
@@ -52,23 +54,54 @@ const STORAGE_KEYS = {
   LOCATION: 'heatwave_selected_location',
 };
 
+function sanitizeRegion(region: MunicipalRegion): MunicipalRegion {
+  if (!region || !region.name) return region;
+  const norm = region.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const known =
+    KNOWN_INDIAN_LOCATIONS[norm] ||
+    Object.entries(KNOWN_INDIAN_LOCATIONS).find(([k]) => norm.includes(k) || k.includes(norm))?.[1];
+
+  if (known) {
+    const distLng = Math.abs(region.coordinates[0] - known.lng);
+    const distLat = Math.abs(region.coordinates[1] - known.lat);
+    if (distLng > 0.5 || distLat > 0.5) {
+      console.info(`Auto-correcting corrupted coordinates for ${region.name} to [${known.lng}, ${known.lat}]`);
+      const corrected: MunicipalRegion = {
+        ...region,
+        name: known.name,
+        state: known.state,
+        coordinates: [known.lng, known.lat],
+        description: `User-selected coordinate: ${known.lat.toFixed(4)}°N, ${known.lng.toFixed(4)}°E`,
+      };
+      try {
+        localStorage.setItem(STORAGE_KEYS.REGION, JSON.stringify(corrected));
+      } catch {}
+      return corrected;
+    }
+  }
+  return region;
+}
+
 function getSavedRegion(): MunicipalRegion {
   try {
+    const allAvailable = getAllRegions();
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlRegionId = params.get('region');
       if (urlRegionId) {
-        const matched = MUNICIPAL_REGIONS.find(
+        const matched = allAvailable.find(
           (r) => r.id.toLowerCase() === urlRegionId.toLowerCase()
         );
-        if (matched) return matched;
+        if (matched) return sanitizeRegion(matched);
       }
     }
     const saved = localStorage.getItem(STORAGE_KEYS.REGION);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.id && parsed.coordinates && Array.isArray(parsed.coordinates)) {
-        return parsed;
+        const found = allAvailable.find((r) => r.id.toLowerCase() === parsed.id.toLowerCase());
+        if (found) return sanitizeRegion({ ...found });
+        return sanitizeRegion(parsed);
       }
     }
   } catch (err) {
@@ -135,7 +168,22 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAgentChatOpen, setIsAgentChatOpen] = useState<boolean>(false);
+  const [isAgentChatOpen, setIsAgentChatOpenState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('agent_chat_open') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setIsAgentChatOpen = useCallback((open: boolean) => {
+    setIsAgentChatOpenState(open);
+    try {
+      localStorage.setItem('agent_chat_open', String(open));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
 
   // Unified data loader for a region that respects user-selected or persisted ward/location
   const loadRegionData = useCallback(
@@ -148,9 +196,16 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setError(null);
 
       try {
-        const fetchedWards = await wardService.getWards(region);
+        let liveWeather;
+        try {
+          liveWeather = await fetchLiveWeatherForCoords(region.coordinates[1], region.coordinates[0], region.name);
+        } catch (e) {
+          console.warn('Live weather pre-fetch note:', e);
+        }
+
+        const fetchedWards = await wardService.getWards(region, liveWeather);
         const [fetchedSteps, fetchedRes, fetchedAlerts] = await Promise.all([
-          weatherService.getWeatherForecast(region, fetchedWards),
+          weatherService.getWeatherForecast(region, fetchedWards, liveWeather),
           resourceService.getResources(region, fetchedWards),
           alertService.getAlerts(region, fetchedWards),
         ]);
@@ -159,6 +214,17 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setForecastSteps(fetchedSteps);
         setResources(fetchedRes);
         setAlerts(fetchedAlerts);
+
+        // Dynamically compute the region's overall live risk level
+        const computedRegionRisk = fetchedWards.some((w) => w.currentMetrics?.riskLevel === 'SEVERE')
+          ? 'SEVERE'
+          : fetchedWards.some((w) => w.currentMetrics?.riskLevel === 'HIGH')
+          ? 'HIGH'
+          : fetchedWards.some((w) => w.currentMetrics?.riskLevel === 'MODERATE')
+          ? 'MODERATE'
+          : 'LOW';
+
+        setActiveRegionState((prev) => (prev.id === region.id ? { ...prev, riskStatus: computedRegionRisk } : prev));
 
         // Determine which ward or location to select
         const savedWardId = overrideWardId !== undefined ? overrideWardId : getSavedWardId();
@@ -178,6 +244,14 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           );
         }
 
+        const isLocInRegion = (loc: LocationItem | null) => {
+          if (!loc || !loc.coordinates) return false;
+          return (
+            Math.abs(loc.coordinates[0] - region.coordinates[0]) <= 1.2 &&
+            Math.abs(loc.coordinates[1] - region.coordinates[1]) <= 1.2
+          );
+        };
+
         if (targetWard) {
           setSelectedWardState(targetWard);
           const baseLoc = wardToLocationItem(targetWard);
@@ -191,8 +265,8 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           enrichLocationWithLiveWeather(baseLoc).then((liveLoc) => {
             setSelectedLocationState((prev) => (prev?.id === baseLoc.id ? liveLoc : prev));
           });
-        } else if (savedLoc && savedLoc.coordinates) {
-          // Custom pinned location or emergency resource
+        } else if (savedLoc && savedLoc.coordinates && isLocInRegion(savedLoc)) {
+          // Custom pinned location or emergency resource in current region
           setSelectedWardState(null);
           setSelectedLocationState(savedLoc);
           try {
@@ -230,10 +304,10 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               coordinates: region.coordinates,
               markerType: 'WARD',
               riskLevel: region.riskStatus,
-              hviScore: region.riskStatus === 'SEVERE' ? 0.85 : 0.65,
-              uctiIndex: region.riskStatus === 'SEVERE' ? 47.1 : 42.8,
-              wbgtIndex: region.riskStatus === 'SEVERE' ? 32.2 : 30.1,
-              ambientTemperature: region.riskStatus === 'SEVERE' ? 42.8 : 39.5,
+              hviScore: region.riskStatus === 'SEVERE' ? 0.85 : region.riskStatus === 'HIGH' ? 0.65 : 0.40,
+              uctiIndex: region.riskStatus === 'SEVERE' ? 46.5 : region.riskStatus === 'HIGH' ? 40.5 : 32.0,
+              wbgtIndex: region.riskStatus === 'SEVERE' ? 32.2 : region.riskStatus === 'HIGH' ? 29.5 : 26.5,
+              ambientTemperature: region.riskStatus === 'SEVERE' ? 42.8 : region.riskStatus === 'HIGH' ? 38.5 : 29.5,
               relativeHumidity: 65,
               population: 52000,
               ndviIndex: 0.15,
@@ -337,7 +411,11 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Active Region Switcher Handler (Updates active region, generates region telemetry, & fetches REAL LIVE weather)
   const setActiveRegion = useCallback(
-    async (region: MunicipalRegion) => {
+    async (rawRegion: MunicipalRegion) => {
+      const region = sanitizeRegion(rawRegion);
+      if (region.isCustom || region.id.startsWith('custom-')) {
+        saveCustomRegion(region);
+      }
       setActiveRegionState(region);
       try {
         localStorage.setItem(STORAGE_KEYS.REGION, JSON.stringify(region));
@@ -444,7 +522,7 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const sendBroadcastAlert = useCallback(async (payload: any) => {
-    await alertService.sendBroadcastAlert(payload);
+    return await alertService.sendBroadcastAlert(payload);
   }, []);
 
   const value = useMemo(

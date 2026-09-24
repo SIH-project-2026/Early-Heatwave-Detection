@@ -5,7 +5,9 @@ export interface MunicipalRegion {
   coordinates: [number, number]; // [lng, lat]
   zoom: number;
   description: string;
-  riskStatus: 'SEVERE' | 'HIGH' | 'MODERATE';
+  riskStatus: 'SEVERE' | 'HIGH' | 'MODERATE' | 'LOW';
+  isCustom?: boolean;
+  savedAt?: string;
 }
 
 export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
@@ -15,8 +17,8 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     state: 'Assam',
     coordinates: [91.7362, 26.1445],
     zoom: 12,
-    description: 'Kamrup Metro & Brahmaputra valley heat & humidity stress telemetry',
-    riskStatus: 'SEVERE',
+    description: 'Kamrup Metro & Brahmaputra valley seasonal telemetry',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'delhi-gurgaon',
@@ -24,8 +26,8 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     state: 'Delhi / Haryana',
     coordinates: [77.110, 28.540],
     zoom: 11,
-    description: 'Delhi-Gurgaon Capital Region extreme thermal stress observation zone',
-    riskStatus: 'SEVERE',
+    description: 'Delhi-Gurgaon Capital Region thermal observation zone',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'gurgaon',
@@ -34,7 +36,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [77.0266, 28.4595],
     zoom: 12,
     description: 'Cyber City, Sohna Valley, MG Road & Manesar Industrial telemetry',
-    riskStatus: 'SEVERE',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'sohna-gurgaon',
@@ -42,8 +44,8 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     state: 'Haryana',
     coordinates: [77.0697, 28.2464],
     zoom: 12.5,
-    description: 'Sohna Valley, Shiva Kund, Elevated Expressway & Damdama foothills weather telemetry',
-    riskStatus: 'SEVERE',
+    description: 'Sohna Valley, Shiva Kund & Damdama foothills weather telemetry',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'delhi',
@@ -52,7 +54,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [77.209, 28.613],
     zoom: 11.5,
     description: 'Connaught Place, Karol Bagh & Shahdara zone',
-    riskStatus: 'SEVERE',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'nagpur',
@@ -61,7 +63,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [79.088, 21.145],
     zoom: 12,
     description: 'Central India high-resolution ward telemetry zone',
-    riskStatus: 'SEVERE',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'mumbai',
@@ -70,7 +72,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [72.877, 19.076],
     zoom: 11.5,
     description: 'Coastal urban heat island & humidity stress zone',
-    riskStatus: 'HIGH',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'ahmedabad',
@@ -79,7 +81,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [72.571, 23.022],
     zoom: 11.5,
     description: 'Western semi-arid heat stress action plan zone',
-    riskStatus: 'HIGH',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'pune',
@@ -88,7 +90,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [73.856, 18.520],
     zoom: 12,
     description: 'Deccan plateau urban expansion telemetry',
-    riskStatus: 'MODERATE',
+    riskStatus: 'LOW',
   },
   {
     id: 'jaipur',
@@ -96,8 +98,8 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     state: 'Rajasthan',
     coordinates: [75.787, 26.912],
     zoom: 11.5,
-    description: 'Thar fringe extreme temperature monitoring',
-    riskStatus: 'SEVERE',
+    description: 'Thar fringe temperature monitoring zone',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'kolkata',
@@ -106,7 +108,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [88.3639, 22.5726],
     zoom: 12,
     description: 'Eastern Gangetic delta heat & humidity monitoring',
-    riskStatus: 'HIGH',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'hyderabad',
@@ -115,7 +117,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [78.4867, 17.3850],
     zoom: 11.5,
     description: 'Deccan urban core thermal telemetry',
-    riskStatus: 'SEVERE',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'bengaluru',
@@ -124,7 +126,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [77.5946, 12.9716],
     zoom: 11.5,
     description: 'Southern plateau microclimate observation',
-    riskStatus: 'MODERATE',
+    riskStatus: 'LOW',
   },
   {
     id: 'chennai',
@@ -133,7 +135,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [80.2707, 13.0827],
     zoom: 12,
     description: 'Coromandel coast heat stress telemetry',
-    riskStatus: 'HIGH',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'lucknow',
@@ -142,7 +144,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [80.9462, 26.8467],
     zoom: 12,
     description: 'Central UP Gangetic plain heat monitoring',
-    riskStatus: 'SEVERE',
+    riskStatus: 'MODERATE',
   },
   {
     id: 'surat',
@@ -151,7 +153,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [72.8311, 21.1702],
     zoom: 12,
     description: 'Tapi delta industrial heat risk zone',
-    riskStatus: 'HIGH',
+    riskStatus: 'MODERATE',
   },
 ];
 
@@ -160,15 +162,17 @@ export function createCustomRegion(
   state: string,
   lat: number,
   lng: number,
-  riskStatus: 'SEVERE' | 'HIGH' | 'MODERATE' = 'HIGH'
+  riskStatus: 'SEVERE' | 'HIGH' | 'MODERATE' | 'LOW' = 'MODERATE'
 ): MunicipalRegion {
   return {
-    id: `custom-${Date.now()}`,
+    id: `custom-${name.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'loc'}-${Date.now()}`,
     name,
     state,
     coordinates: [lng, lat],
     zoom: 12,
-    description: `Custom coordinates (${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E)`,
+    description: `User-selected coordinate: ${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`,
     riskStatus,
+    isCustom: true,
+    savedAt: new Date().toISOString(),
   };
 }

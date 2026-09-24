@@ -65,11 +65,19 @@ export const DashboardPage: React.FC = () => {
   if (loading) return <LoadingState message="Connecting to municipal heat risk telemetry..." />;
   if (error) return <ErrorState message={error} onRetry={refreshData} />;
 
+  const liveSevereCount = wards?.filter((w) => w.currentMetrics?.riskLevel === 'SEVERE').length || 0;
+  const liveHighCount = wards?.filter((w) => w.currentMetrics?.riskLevel === 'HIGH').length || 0;
+  const liveModCount = wards?.filter((w) => w.currentMetrics?.riskLevel === 'MODERATE').length || 0;
+  const liveLowCount = wards?.filter((w) => w.currentMetrics?.riskLevel === 'LOW').length || 0;
+  const livePopAtRisk = wards
+    ?.filter((w) => w.currentMetrics?.riskLevel === 'SEVERE' || w.currentMetrics?.riskLevel === 'HIGH')
+    .reduce((acc, w) => acc + (w.population || 45000), 0) || 0;
+
   const summary = currentStep?.summary || {
-    totalWards: 24,
-    severeCount: 5,
-    highCount: 8,
-    totalPeopleAtRisk: 184500,
+    totalWards: wards?.length || 24,
+    severeCount: liveSevereCount,
+    highCount: liveHighCount,
+    totalPeopleAtRisk: livePopAtRisk,
   };
 
   const activeLocation = selectedLocation;
@@ -78,8 +86,8 @@ export const DashboardPage: React.FC = () => {
   const allCount = wards?.length || summary.totalWards;
   const severeCount = summary.severeCount;
   const highCount = summary.highCount;
-  const moderateCount = wards?.filter((w) => w.currentMetrics?.riskLevel === 'MODERATE').length || 0;
-  const lowCount = wards?.filter((w) => w.currentMetrics?.riskLevel === 'LOW').length || 0;
+  const moderateCount = liveModCount;
+  const lowCount = liveLowCount;
 
   const filterCounts: Record<string, number> = {
     ALL: allCount,
@@ -515,7 +523,7 @@ export const DashboardPage: React.FC = () => {
         {/* Main Interactive GIS Map & Ward Details Panel Grid (Responsive XL Split / Full Below) */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
           {/* Map Column */}
-          <div className={activeLocation ? 'xl:col-span-7 2xl:col-span-8' : 'xl:col-span-12'}>
+          <div className={activeLocation ? 'xl:col-span-7 2xl:col-span-8 xl:sticky xl:top-20 z-10' : 'xl:col-span-12'}>
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                 <h3 className="text-sm sm:text-base font-bold text-slate-100 uppercase tracking-wider flex items-center space-x-2">
@@ -544,8 +552,14 @@ export const DashboardPage: React.FC = () => {
                 location={activeLocation}
                 onClose={() => setSelectedLocation(null)}
                 onDispatchResource={(wardId) => dispatchResource(wardId)}
-                onSendAlert={(loc) => {
-                  if (selectedWard) setAlertModalWard(selectedWard);
+                onSendAlert={(locOrWard) => {
+                  const targetWard =
+                    (locOrWard && 'currentMetrics' in locOrWard ? (locOrWard as Ward) : null) ||
+                    selectedWard ||
+                    (locOrWard?.id ? wards?.find((w) => w.id === locOrWard.id) : null) ||
+                    wards?.[0] ||
+                    null;
+                  if (targetWard) setAlertModalWard(targetWard);
                 }}
               />
             </div>
@@ -559,7 +573,17 @@ export const DashboardPage: React.FC = () => {
 
     {/* Tab 2: Weather Forecast */}
     <div className={activeTab === 'weather_forecast' ? 'block space-y-6' : 'hidden'}>
-      <LiveWeatherHero />
+      <LiveWeatherHero
+        onSwitchToCommandCenter={() => {
+          setActiveTab('command_center');
+          setTimeout(() => {
+            const el = document.getElementById('gis-map-view');
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 80);
+        }}
+      />
     </div>
 
     {/* Alert Broadcast Modal */}

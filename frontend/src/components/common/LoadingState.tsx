@@ -46,7 +46,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   return (
     <div
       className={`relative flex flex-col items-center justify-center p-6 select-none font-sans overflow-hidden ${
-        isFullScreen ? 'min-h-screen bg-[#0d1017] text-slate-100' : 'min-h-[380px] w-full bg-transparent text-slate-100'
+        isFullScreen ? 'min-h-screen bg-black text-slate-100' : 'min-h-[380px] w-full bg-transparent text-slate-100'
       } ${className}`}
     >
       {/* Subtle Atmospheric Backdrop Glows */}

@@ -7,12 +7,18 @@ import { generateResourcesForRegion } from './regionDataGenerator';
 
 export const resourceService = {
   async getResources(region?: MunicipalRegion, wards?: Ward[]): Promise<EmergencyResource[]> {
-    if (!isMockMode) {
+    if (!isMockMode && region) {
       try {
-        // Trailing slash add kiya (/resources/) redirect aur cancel issue hatane ke liye
-        const response = await apiClient.get<EmergencyResource[]>('/resources/', { params: { regionId: region?.id } });
+        const response = await apiClient.get<EmergencyResource[]>('/resources/', { params: { regionId: region.id } });
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          return response.data;
+          const [cLng, cLat] = region.coordinates;
+          const validResources = response.data.filter((r) => {
+            if (!r.coordinates || !Array.isArray(r.coordinates) || r.coordinates.length < 2) return false;
+            return Math.abs(r.coordinates[0] - cLng) <= 1.2 && Math.abs(r.coordinates[1] - cLat) <= 1.2;
+          });
+          if (validResources.length > 0) {
+            return validResources;
+          }
         }
       } catch (err) {
         console.warn('FastAPI resources fetch fallback:', err);

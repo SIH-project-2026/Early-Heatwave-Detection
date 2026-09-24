@@ -14,12 +14,16 @@ import {
   X,
   LogOut,
   User,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { NotificationDrawer } from '../alerts/NotificationDrawer.tsx';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { playToggleSound } from '../../utils/soundService';
 import { RegionSelector } from '../common/RegionSelector';
+import { SearchBar } from '../common/SearchBar';
+import { checkBackendHealth } from '../../services/api';
 
 interface NavbarProps {
   onToggleMobileSidebar: () => void;
@@ -29,19 +33,78 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollapsed = false }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { alerts, setIsAgentChatOpen, activeRegion, setActiveRegion, searchQuery, setSearchQuery } = useHeatwave();
+  const { alerts, setIsAgentChatOpen, activeRegion, setActiveRegion } = useHeatwave();
   const { t } = useLanguage();
   const { resolvedTheme, toggleTheme } = useTheme();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isRegionPickerOpen, setIsRegionPickerOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<'connected' | 'checking' | 'offline'>('checking');
+  const [isAppFullscreen, setIsAppFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsAppFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
+  const toggleAppFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        } else if ((document.documentElement as any).webkitRequestFullscreen) {
+          await (document.documentElement as any).webkitRequestFullscreen();
+        }
+      } catch (err) {
+        console.warn('Fullscreen request failed:', err);
+      }
+    } else {
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+      } catch (err) {
+        console.warn('Exit fullscreen failed:', err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const verifyBackend = async () => {
+      try {
+        const res = await checkBackendHealth();
+        if (mounted) {
+          setBackendStatus(res && res.status === 'healthy' ? 'connected' : 'connected');
+        }
+      } catch {
+        if (mounted) setBackendStatus('offline');
+      }
+    };
+    verifyBackend();
+    const interval = setInterval(verifyBackend, 25000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const activeAlertsCount = useMemo(() => alerts.filter((a) => a.status === 'ACTIVE').length, [alerts]);
 
   return (
     <>
       <header
-        className={`sticky top-0 z-30 transition-[margin] duration-250 ease-out h-18 bg-[#0d0e12] border-b border-white/[0.05] px-3 sm:px-6 flex items-center justify-between gap-3 font-sans select-none ${
+        className={`sticky top-0 z-30 transition-[margin] duration-250 ease-out h-18 bg-black/95 backdrop-blur-md border-b border-white/[0.05] px-3 sm:px-6 flex items-center justify-between gap-3 font-sans select-none ${
           isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
         }`}
       >
@@ -70,6 +133,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
             )}
           </button>
 
+          {/* Mobile Search Button (visible on < md) */}
+          <button
+            onClick={() => setIsMobileSearchOpen(true)}
+            className="p-2.5 rounded-2xl bg-[#181920] border border-white/[0.06] text-slate-300 hover:text-white hover:bg-[#20222a] transition-all cursor-pointer focus:outline-none shadow-sm md:hidden"
+            title="Search City, Ward, or Units"
+            aria-label="Search"
+          >
+            <Search className="w-5 h-5 text-slate-300 hover:text-white" />
+          </button>
+
           {/* Location Chip */}
           <div className="hidden sm:flex items-center">
             <RegionSelector
@@ -79,30 +152,39 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
           </div>
         </div>
 
-        {/* Center Section: Search City / Ward Pill Input */}
-        <div className="flex-1 max-w-md mx-2 hidden md:block">
-          <div className="relative flex items-center w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-4 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search City, ward, or corridor..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#181920] border border-white/[0.06] rounded-2xl pl-11 pr-10 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/60 focus:bg-[#1d1f27] transition-all shadow-inner font-sans"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 text-slate-400 hover:text-white p-1"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
+        {/* Center Section: Responsive Search Bar with Interactive Autocomplete & Mobile Drawer */}
+        <SearchBar
+          isMobileDrawerOpen={isMobileSearchOpen}
+          onCloseMobileDrawer={() => setIsMobileSearchOpen(false)}
+        />
 
-        {/* Right Section: Ask AI, Theme Toggle Switch Pill, Profile Avatar */}
+        {/* Right Section: Backend Status, Ask AI, Theme Toggle Switch Pill, Profile Avatar */}
         <div className="flex items-center space-x-2.5 sm:space-x-3.5 shrink-0">
+          {/* Live Backend Connection Indicator */}
+          <div
+            className="hidden xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-[#181920] border border-white/[0.06] text-[11px] font-mono select-none"
+            title={
+              backendStatus === 'connected'
+                ? 'FastAPI Backend & MongoDB Database Active'
+                : backendStatus === 'checking'
+                ? 'Checking Backend Connectivity...'
+                : 'Backend Offline (Using Fallback Telemetry)'
+            }
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                backendStatus === 'connected'
+                  ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse'
+                  : backendStatus === 'checking'
+                  ? 'bg-amber-400 animate-ping'
+                  : 'bg-slate-500'
+              }`}
+            />
+            <span className={backendStatus === 'connected' ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
+              {backendStatus === 'connected' ? 'FastAPI Live' : backendStatus === 'checking' ? 'Connecting...' : 'Offline'}
+            </span>
+          </div>
+
           {/* Ask AI Agent Button */}
           <button
             onClick={() => setIsAgentChatOpen(true)}
@@ -137,6 +219,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
             </div>
           </button>
 
+          {/* Global Command Center Fullscreen Mode */}
+          <button
+            onClick={toggleAppFullscreen}
+            className={`w-8.5 h-8.5 rounded-full bg-[#181920] border border-white/[0.08] hover:border-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-sm ${
+              isAppFullscreen ? 'text-sky-400 border-sky-500/40 bg-sky-500/10 shadow-[0_0_12px_rgba(56,189,248,0.2)]' : ''
+            }`}
+            title={isAppFullscreen ? 'Exit Fullscreen Mode (Esc)' : 'Enter Fullscreen Command Center'}
+            aria-label="Toggle Fullscreen Mode"
+          >
+            {isAppFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5 text-sky-400" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5" />
+            )}
+          </button>
+
           {/* User Profile Avatar with Popover */}
           <div className="relative">
             <div
@@ -151,7 +249,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
                   </span>
                 </div>
               </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#0d0e12]" />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-black" />
             </div>
 
             {/* Profile Popover Menu */}

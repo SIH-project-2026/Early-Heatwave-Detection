@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { fetchLiveWeatherForCoords } from './liveWeatherService';
 
 const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_BASE_URL || 'http://localhost:8000/api';
@@ -11,8 +12,77 @@ const LANGFLOW_TOKEN =
   import.meta.env.VITE_LANGFLOW_APPLICATION_TOKEN ||
   'sk-Bz406WrwqKlxeJVRyN7eTQ6_QZWbDfEKVT9ItGzARTE';
 
-export async function runLangflowAgent(inputValue: string, context?: any): Promise<string> {
-  // 1. Try FastAPI Backend Endpoint POST /api/agent/chat (Triggers POST /api/agent/chat 200 OK in terminal)
+export interface AgentChatResult {
+  reply: string;
+  hasMapAction?: boolean;
+}
+
+const QUERY_STOPWORDS = new Set([
+  'what', 'is', 'the', 'how', 'weather', 'weathwe', 'wether', 'temperature', 'temp', 'in', 'at',
+  'for', 'of', 'today', 'tomorrow', 'now', 'forecast', 'please', 'tell', 'me', 'rain',
+  'heat', 'heatwave', 'humidity', 'wind', 'kya', 'kiya', 'kaisa', 'kaise', 'hai', 'he',
+  'ho', 'hoga', 'hogi', 'hobe', 'ka', 'ke', 'ki', 'ko', 'me', 'mein', 'par', 'se',
+  'aam', 'taaza', 'haal', 'batao', 'bataiye', 'kitna', 'kitni', 'taapmaan', 'garmi',
+  'mausam', 'baarish', 'loo', 'abhi', 'aaj', 'kal', 'aage', 'yahan', 'wahan', 'ki',
+  'kemon', 'hobo', 'aaji', 'kali', 'boroxun', 'gorom', 'about', 'status', 'update',
+  'show', 'kaha', 'kahan', 'where', 'check', 'give', 'detail', 'details',
+  'please', 'can', 'you', 'bhai', 'ji', 'sir', 'dekh', 'dekhein', 'karo', 'bataye',
+  'aayegi', 'aayega', 'khatra', 'tips', 'ambulance', 'hospital', 'doctor', 'water',
+  'paani', 'number', 'helpline', 'precaution', 'safe', 'bachav', 'karna', 'chahiye',
+  'kenkuwa', 'kenekuwa', 'botor', 'bator', 'ase', 'hoi', 'nki', 'amar', 'apunar',
+  'kuch', 'bhi', 'puchu', 'pucho', 'lekin', 'magar', 'ye', 'yeh', 'woh', 'so', 'toh',
+  'raha', 'rahi', 'rahe', 'rahega', 'rahegi', 'lag', 'laga', 'lagi', 'lagta', 'mang', 'mangta'
+]);
+
+const CITY_ALIASES: Record<string, string> = {
+  guwati: 'Guwahati',
+  guwahti: 'Guwahati',
+  guwhahti: 'Guwahati',
+  gowahati: 'Guwahati',
+  gauhati: 'Guwahati',
+  ghy: 'Guwahati',
+  dilli: 'Delhi',
+  bombay: 'Mumbai',
+  calcutta: 'Kolkata',
+  bangalore: 'Bengaluru',
+  sona: 'Sohna',
+  jaypur: 'Jaipur',
+  amdavad: 'Ahmedabad',
+};
+
+function extractCandidatePlace(input: string): string {
+  const clean = input.toLowerCase().replace(/[^\w\s]/g, ' ');
+  const tokens = clean.split(/\s+/).filter((t) => t && !QUERY_STOPWORDS.has(t) && t.length > 1 && isNaN(Number(t)));
+  if (tokens.length === 0) return '';
+  const rawCandidate = tokens.join(' ').trim();
+  if (CITY_ALIASES[rawCandidate]) return CITY_ALIASES[rawCandidate];
+  for (const t of tokens) {
+    if (CITY_ALIASES[t]) return CITY_ALIASES[t];
+  }
+  return rawCandidate;
+}
+
+function extractCoordinates(input: string): [number, number, string] | null {
+  const match = input.match(/(-?\d+\.?\d*)\s*°?\s*([NSns])?\s*,\s*(-?\d+\.?\d*)\s*°?\s*([EWew])?/);
+  if (match) {
+    let lat = parseFloat(match[1]);
+    if (match[2] && match[2].toUpperCase() === 'S') lat = -lat;
+    let lng = parseFloat(match[3]);
+    if (match[4] && match[4].toUpperCase() === 'W') lng = -lng;
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      const label = `${Math.abs(lat).toFixed(3)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(3)}°${lng >= 0 ? 'E' : 'W'}`;
+      return [lat, lng, label];
+    }
+  }
+  return null;
+}
+
+export async function runLangflowAgent(
+  inputValue: string,
+  context?: any,
+  language: string = 'auto'
+): Promise<AgentChatResult> {
+  // 1. Try FastAPI Backend Endpoint POST /api/agent/chat
   try {
     const backendAgentUrl = `${BACKEND_BASE_URL}/agent/chat`;
     const backendRes = await axios.post(
@@ -20,8 +90,9 @@ export async function runLangflowAgent(inputValue: string, context?: any): Promi
       {
         message: inputValue,
         context: context || {},
+        language: language || 'auto',
       },
-      { timeout: 4000 }
+      { timeout: 20000 }
     );
 
     if (backendRes.data) {
@@ -32,285 +103,193 @@ export async function runLangflowAgent(inputValue: string, context?: any): Promi
         backendRes.data.text ||
         backendRes.data.output;
 
+      const hasMapAction = Boolean(backendRes.data.hasMapAction);
+
       if (reply && typeof reply === 'string') {
-        return reply;
-      }
-      if (typeof backendRes.data === 'string') {
-        return backendRes.data;
+        return { reply, hasMapAction };
       }
     }
   } catch (backendErr: any) {
-    console.warn('FastAPI /api/agent/chat connection note, trying LangFlow pipeline:', backendErr.message);
+    console.warn('FastAPI /api/agent/chat note, switching to resilient thermal intelligence:', backendErr.message);
   }
 
-  // 2. Try LangFlow Pipeline endpoint (port 7860)
-  try {
-    const payload = {
-      input_value: inputValue,
-      input_type: 'chat',
-      output_type: 'chat',
-      tweaks: {
-        ...(context ? { context_data: JSON.stringify(context) } : {}),
-      },
-    };
+  // 2. Try LangFlow Pipeline endpoint if configured
+  if (LANGFLOW_URL && !LANGFLOW_URL.includes('localhost:7860')) {
+    try {
+      const payload = {
+        input_value: inputValue,
+        input_type: 'chat',
+        output_type: 'chat',
+        tweaks: {
+          ...(context ? { context_data: JSON.stringify(context) } : {}),
+        },
+      };
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
 
-    if (LANGFLOW_TOKEN) {
-      headers['Authorization'] = `Bearer ${LANGFLOW_TOKEN}`;
-    }
-
-    const response = await axios.post(LANGFLOW_URL, payload, { headers, timeout: 8000 });
-
-    const data = response.data;
-    if (data?.outputs?.[0]?.outputs?.[0]?.results?.message?.text) {
-      return data.outputs[0].outputs[0].results.message.text;
-    }
-    if (data?.outputs?.[0]?.outputs?.[0]?.messages?.[0]?.message) {
-      return data.outputs[0].outputs[0].messages[0].message;
-    }
-    if (typeof data?.result === 'string') {
-      return data.result;
-    }
-    if (typeof data === 'string') {
-      return data;
-    }
-
-    return JSON.stringify(data);
-  } catch (err: any) {
-    console.warn('Live Weather & Thermal Intelligence Agent responding in human-friendly terms:', err.message);
-
-    const q = inputValue.toLowerCase().trim();
-    const regionName = context?.region || 'Municipal Region';
-    const ambientTemp = Math.round(context?.ambientTemp ?? 27);
-    const apparentTemp = Math.round(context?.apparentTemp ?? ambientTemp + 3);
-    const conditionText = context?.conditionText || 'Aasmaan me baadal';
-    const humidity = context?.humidity || 82;
-    const rainProb = context?.rainProb || 70;
-    const tomorrow = context?.tomorrow;
-    const tomorrowMax = tomorrow?.tempMax ?? (ambientTemp + 3);
-    const tomorrowMin = tomorrow?.tempMin ?? Math.max(22, ambientTemp - 3);
-    const tomorrowCond = tomorrow?.conditionText || 'Baadal aur halki dhoop';
-    const tomorrowRainProb = tomorrow?.precipitationProbability ?? (rainProb > 40 ? rainProb - 10 : 25);
-    const isActualHeatwave = context?.isActualHeatwave ?? (ambientTemp >= 38);
-    const severeWards = context?.severeWardsList || [];
-
-    // Check if query is in Assamese / Bengali phrasing
-    const isAssamese =
-      q.includes('kali') ||
-      q.includes('hobo') ||
-      q.includes('boroxun') ||
-      q.includes('aaji') ||
-      q.includes('kemon') ||
-      q.includes('gorom');
-
-    // Intent 1: Tomorrow's Weather / "kali weather ki hobo" / "kal mausam kaisa hoga" / "tomorrow weather"
-    if (
-      q.includes('kali') ||
-      q.includes('kal') ||
-      q.includes('tomorrow') ||
-      q.includes('agle din') ||
-      q.includes('next day') ||
-      q.includes('hobo') ||
-      (q.includes('weather') && (q.includes('ki') || q.includes('kaisa') || q.includes('hoga') || q.includes('how') || q.includes('kemon')))
-    ) {
-      const heatwaveNote =
-        tomorrowMax >= 40
-          ? '⚠️ Dophar me tez dhoop aur loo ka asar ho sakta hai'
-          : '✅ **Bilkul nahi!** Kal heatwave (loo) ka koi khatra nahi hai, mausam normal rahega';
-
-      const advice =
-        tomorrowRainProb >= 50
-          ? 'Bahar nikalte waqt chhaata (umbrella) saath rakhein kyunki baarish ke aasaar hain, aur paani peete rahein!'
-          : 'Dophar me zaroori kaam ho tabhi niklein aur samay par paani peete rahein.';
-
-      return `🌤️ **Kal Ka Mausam (${regionName})**
-
-Aapke sawaal *"kal mausam kaisa hoga"* ka saral aur aam bhasha me jawaab:
-
-• 🌡️ **Taapmaan (Temperature)**: Kal dophar me lagbhag **${tomorrowMax}°C** tak jayega (subah aur raat me **${tomorrowMin}°C** rahega).
-• 🥵 **Garmi ka ehsaas**: ${tomorrowMax >= 38 ? 'Dophar me tez garmi mehsoos ho sakti hai' : 'Mausam comfortable aur aam dinon jaisa rahega'}.
-• 🌧️ **Baarish ke aasaar**: **${tomorrowRainProb}% sambhavna** hai — ${tomorrowCond}.
-• ☀️ **Heatwave (Loo) ka khatra**: ${heatwaveNote}.
-
-💡 **Aam Salah**: ${advice}${
-        isAssamese
-          ? '\n\n*(Kali Guwahati-t mausam gorom thakibo aru boroxun ahibo pare — safe thakiba!)*'
-          : ''
-      }`;
-    }
-
-    // Intent 2: Today's Weather / Current Weather / Rain ("aaj", "today", "weather", "mausam", "rain", "baarish")
-    if (
-      q.includes('aaj') ||
-      q.includes('today') ||
-      q.includes('weather') ||
-      q.includes('mausam') ||
-      q.includes('rain') ||
-      q.includes('baarish') ||
-      q.includes('boroxun') ||
-      q.includes('kaisa hai')
-    ) {
-      return `🌤️ **Aaj Ka Mausam (${regionName})**
-
-• 🌡️ **Abhi Ka Taapmaan**: **${ambientTemp}°C** (${conditionText})
-• 🥵 **Garmi Ka Ehsaas (Feels like)**: Lagbhag **${apparentTemp}°C** mehsoos ho raha hai
-• 💧 **Hawa Me Nami (Humidity)**: **${humidity}%**
-• 🌧️ **Baarish Ke Aasaar**: **${rainProb}% sambhavna** hai
-• ☀️ **Heatwave Status**: ${
-        isActualHeatwave
-          ? '⚠️ Dophar me tez dhoop aur loo ka asar hai, chhaanv me rahein'
-          : '✅ **Safe hai** — Abhi heatwave (loo) ka koi khatra nahi hai'
+      if (LANGFLOW_TOKEN) {
+        headers['Authorization'] = `Bearer ${LANGFLOW_TOKEN}`;
       }
 
-💡 **Salah**: Aasmaan me baadal chhaaye hue hain, agar bahar nikal rahe hain toh chhaata saath rakhein aur samay par paani peete rahein.`;
-    }
+      const response = await axios.post(LANGFLOW_URL, payload, { headers, timeout: 8000 });
+      const data = response.data;
+      const text =
+        data?.outputs?.[0]?.outputs?.[0]?.results?.message?.text ||
+        data?.outputs?.[0]?.outputs?.[0]?.messages?.[0]?.message ||
+        (typeof data?.result === 'string' ? data.result : null);
 
-    // Intent 3: Heatwave / Loo / Garmi Chance / Timing ("heatwave", "loo", "chance", "probability", "garmi", "aayega", "kab")
-    if (
-      q.includes('heatwave') ||
-      q.includes('loo') ||
-      q.includes('chance') ||
-      q.includes('chence') ||
-      q.includes('probability') ||
-      q.includes('garmi') ||
-      q.includes('aayega') ||
-      q.includes('kab') ||
-      q.includes('hoga')
-    ) {
-      if (!isActualHeatwave) {
-        return `☀️ **Kya Heatwave (Loo) Ka Khatra Hai? (${regionName})**
+      if (text) {
+        return { reply: text, hasMapAction: false };
+      }
+    } catch {}
+  }
 
-✅ **Khabar acchi hai: Abhi heatwave (loo) ka koi khatra nahi hai!**
+  // 3. Resilient Client-Side Geocoding & Open-Meteo Telemetry Engine
+  const q = inputValue.toLowerCase().trim();
+  const isHindi = ['kya', 'kiya', 'kaisa', 'kaise', 'hai', 'he', 'hoga', 'mausam', 'taapmaan', 'garmi', 'baarish', 'loo', 'aaj', 'kal', 'batao'].some((k) => q.includes(k));
 
-• **Kyun?** Abhi taapmaan lagbhag **${ambientTemp}°C** hai jo aam aur safe taapmaan hai. Heatwave tab aati hai jab taapmaan 40°C ya usse upar chala jaye.
-• **Mausam ka haal**: Aasman me baadal chhaaye hue hain aur baarish ki sambhavna hai, jisse mausam comfortable bana hua hai.
-• **Agle kuch din**: Filhaal agle 3-4 din tak kisi bhi ilaqe me tez loo ka aasaar nahi hai.
+  // A. Check for coordinates in prompt (from map pin selection)
+  const coords = extractCoordinates(inputValue);
+  if (coords) {
+    const [lat, lng, label] = coords;
+    try {
+      const live = await fetchLiveWeatherForCoords(lat, lng, label);
+      const isHeatwave = live.temperatureC >= 40 || live.apparentTempC >= 44;
+      if (isHindi) {
+        return {
+          reply: `📍 **Map Par Chuni Gayi Location Ka Taaza Haal (${label})**
 
-Aap bina kisi chinta ke apne aam kaam kar sakte hain, bas dhoop me nikalte waqt paani zaroor piyein!`;
+Aapke chune gaye sthaan ka live satellite mausam data:
+
+• 🌡️ **Abhi Ka Taapmaan**: **${live.temperatureC}°C** (${live.conditionText}, feels like **${live.apparentTempC}°C**)
+• 💧 **Hawa Me Nami (Humidity)**: **${live.humidity}%**
+• 💨 **Hawa Ki Gati**: **${live.windSpeed} km/h (${live.windDirection})**
+• 🌧️ **Baarish Ke Aasaar**: **${live.precipitationProbability}% sambhavna**
+• ☀️ **Heatwave (Loo) Status**: ${isHeatwave ? '⚠️ **Severe Heat Alert**' : '✅ **Normal / Safe**'}
+
+💡 **Salah**: Mausam comfortable hai, dhoop me nikalte samay paryapt paani peete rahein.`,
+          hasMapAction: false,
+        };
       } else {
-        return `☀️ **Tez Garmi / Heatwave Warning (${regionName})**
+        return {
+          reply: `📍 **Live Weather for Selected Map Location (${label})**
 
-⚠️ **Dhyan dein: Aaj dophar ke waqt tez garmi aur loo ka asar rahega!**
+Real-time satellite observation for pinned coordinates:
 
-• ⏰ **Khatre Ka Samay**: Dophar **12:00 baje se 4:00 baje tak** dhoop sabse tez rahegi.
-• 🌡️ **Taapmaan**: Taapmaan **${ambientTemp}°C** tak jayega (feels like **${apparentTemp}°C**).
-• 🛡️ **Zaroori Savdhani**:
-  1. Dophar 12-4 baje seedhe dhoop me na niklein.
-  2. Pyaas na lage tab bhi thoda-thoda paani, ORS ya nimbu paani piyein.
-  3. Bahar nikalte waqt topi, gamchha ya chhaata zaroor lein.`;
+• 🌡️ **Temperature**: **${live.temperatureC}°C** (${live.conditionText}, feels like **${live.apparentTempC}°C**)
+• 💧 **Relative Humidity**: **${live.humidity}%**
+• 💨 **Wind**: **${live.windSpeed} km/h (${live.windDirection})**
+• 🌧️ **Precipitation Probability**: **${live.precipitationProbability}%**
+• ☀️ **Heatwave Hazard**: ${isHeatwave ? '⚠️ Active Extreme Heat' : '✅ Normal / Low Risk'}
+
+💡 **Advisory**: Stay hydrated and protected from direct sun exposure during peak daylight.`,
+          hasMapAction: false,
+        };
       }
-    }
-
-    // Intent 4: Ambulance / Hospital / Emergency / Doctor ("ambulance", "hospital", "doctor", "ilaaj", "dawa", "108")
-    if (
-      q.includes('ambulance') ||
-      q.includes('ambulence') ||
-      q.includes('hospital') ||
-      q.includes('hosp') ||
-      q.includes('medical') ||
-      q.includes('doctor') ||
-      q.includes('ilaaj') ||
-      q.includes('treatment') ||
-      q.includes('108') ||
-      q.includes('heatstroke')
-    ) {
-      return `🚑 **Emergency Ambulance aur Hospital Sahayata (${regionName})**
-
-Agar kisi ko tez garmi se chakkar aaye, behoshi ho ya ulti lage:
-
-📞 **Free Ambulance Helpline**: Turant **108** ya **112** par call karein.
-🏥 **Special Heatstroke Hospital**: ${regionName} ke Civil Hospital aur Community Health Centers me garmi ke mareezon ke liye dedicated AC wards, cold saline aur doctor 24 ghante tayyar hain.
-
-💧 **Gharelu Madad (Immediate First-Aid)**:
-• Mareez ko turant dhoop se hata kar thandi chhaanv me le jayein.
-• Gardan, maathe aur pairon par geela thanda kapda rakhein.
-• Hosh me ho toh thanda paani ya ORS ghol pilayein.`;
-    }
-
-    // Intent 5: Affected Areas / Wards ("area", "ward", "kahan", "where", "konse", "place", "ilaka")
-    if (
-      q.includes('area') ||
-      q.includes('ward') ||
-      q.includes('kahan') ||
-      q.includes('where') ||
-      q.includes('konse') ||
-      q.includes('place') ||
-      q.includes('ilaka') ||
-      q.includes('sector')
-    ) {
-      const simpleWardsList =
-        severeWards.length > 0
-          ? severeWards
-              .slice(0, 4)
-              .map((w: any) => `• **${w.name}** (${w.zone || 'Pramukh Ilaqa'})`)
-              .join('\n')
-          : `• **Market aur Railway Station Area**\n• **Main Bus Stand aur Transit Chowk**\n• **Industrial Belt / Factory Area**\n• **Bheed-bhaad wali Bastiyan**`;
-
-      return `📍 **Kaunse Ilakon Me Zyada Garmi Mehsoos Hoti Hai? (${regionName})**
-
-Concrete, traffic aur building density ki wajah se in ilakon me aam khule ilakon se 1-2°C zyada garmi lagti hai:
-
-${simpleWardsList}
-
-🌳 **Tippani**: Ped-paudhon aur khule maidan wale ilakon me thandak rehti hai, jabki bheed-bhaad wale transit aur factory ilakon me dhoop ka asar zyada hota hai.`;
-    }
-
-    // Intent 6: Safety & Precautions ("precaution", "safe", "bachav", "kya karein", "tips", "school")
-    if (
-      q.includes('do') ||
-      q.includes('precaution') ||
-      q.includes('safe') ||
-      q.includes('bachav') ||
-      q.includes('tips') ||
-      q.includes('outside') ||
-      q.includes('school') ||
-      q.includes('help') ||
-      q.includes('kya')
-    ) {
-      return `🛡️ **Garmi Aur Dhoop Se Bachne Ke 5 Asaan Niyam**:
-
-1. 💧 **Paani Peete Rahein**: Din bhar me kam se kam 3-4 litre paani piyein. Nimbu paani, ORS, nariyal paani ya lassi bohot faydemand hai.
-2. 🏠 **Dophar Me Chhaanv**: 12 baje se 4 baje tak seedhe tez dhoop me khade rehne se bachein.
-3. 👕 **Sooti Kapde**: Dheele aur halke rang ke cotton kapde pehnein taaki paseena sookh sake.
-4. 🧢 **Chhaata Ya Topi**: Dhoop me nikalte waqt chhaata, goggle ya topi ka istemaal karein.
-5. 👶 **Baccho Aur Bujurgon Ka Dhyan**: Chhote baccho aur bujurgon ko dophar ke waqt dhoop me bahar na bhejein.`;
-    }
-
-    // Intent 7: Water Tanker / Paani ("water", "tanker", "paani", "hydration")
-    if (
-      q.includes('water') ||
-      q.includes('tanker') ||
-      q.includes('paani') ||
-      q.includes('hydration') ||
-      q.includes('supply')
-    ) {
-      return `💧 **Peene Ke Paani Ki Suvidha (${regionName})**
-
-• Municipal Corporation dwara bheed-bhaad wale bus stops, railway stations aur bastiyon me **drinking water booths** aur **tankers** lagaye gaye hain.
-• Agar kisi ilaqe me paani ki zaroorat hai toh municipal helpline **108 / 112** par sampark karein.`;
-    }
-
-    // Default Fallback: Simple, friendly human response
-    return `👋 **Namaste! Main aapka Weather & Heatwave Safety Assistant hoon.**
-
-Aapke sawaal: *"${inputValue}"* ke sandarbh me ${regionName} ka taaza haal:
-
-• 🌡️ **Abhi Ka Taapmaan**: **${ambientTemp}°C** (${conditionText}, feels like **${apparentTemp}°C**)
-• 🌧️ **Baarish Ke Aasaar**: **${rainProb}% sambhavna**
-• ☀️ **Heatwave (Loo)**: ${
-      isActualHeatwave
-        ? '⚠️ Dophar me tez dhoop aur loo ka asar hai'
-        : '✅ **Abhi heatwave ka koi khatra nahi hai**, mausam normal hai'
-    }
-
-Aap mujhse aam bhasha me pooch sakte hain:
-👉 *"Kal mausam kaisa hoga?"*
-👉 *"Kya heatwave aayegi?"*
-👉 *"Kaunse ilakon me zyada garmi hai?"*
-👉 *"Garmi se bachne ke tips"*
-👉 *"Emergency ambulance ka number"*`;
+    } catch {}
   }
+
+  // B. Check for candidate place in prompt (e.g. 'sohna', 'delhi', 'mumbai', 'paris')
+  const candidate = extractCandidatePlace(inputValue);
+  if (candidate && candidate.length >= 2) {
+    try {
+      const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(candidate)}&count=1&language=en&format=json`;
+      const geoRes = await fetch(geoUrl);
+      if (geoRes.ok) {
+        const geoData = await geoRes.json();
+        if (Array.isArray(geoData.results) && geoData.results.length > 0) {
+          const top = geoData.results[0];
+          const state = top.admin1 ? `, ${top.admin1}` : '';
+          const country = top.country ? `, ${top.country}` : '';
+          const displayName = `${top.name}${state}${country}`;
+          const live = await fetchLiveWeatherForCoords(top.latitude, top.longitude, displayName);
+          const isHeatwave = live.temperatureC >= 40 || live.apparentTempC >= 44;
+
+          if (isHindi) {
+            return {
+              reply: `🌤️ **${displayName} Ka Taaza Mausam**
+
+Aapke sawaal ke anusaar **${top.name}** ka live satellite weather report:
+
+• 🌡️ **Abhi Ka Taapmaan**: **${live.temperatureC}°C** (${live.conditionText}, feels like **${live.apparentTempC}°C**)
+• 💧 **Hawa Me Nami (Humidity)**: **${live.humidity}%**
+• 💨 **Hawa Ki Gati**: **${live.windSpeed} km/h (${live.windDirection})**
+• 🌧️ **Baarish Ke Aasaar**: **${live.precipitationProbability}% sambhavna**
+• ☀️ **Heatwave (Loo) Status**: ${isHeatwave ? '⚠️ **Loo aur tez garmi ka asar hai!**' : '✅ **Abhi heatwave (loo) ka koi khatra nahi hai**, mausam normal hai.'}
+
+💡 **Mausam Salah**: Bahar nikalte waqt chhaata ya topi saath rakhein aur thoda-thoda paani peete rahein.`,
+              hasMapAction: false,
+            };
+          } else {
+            return {
+              reply: `🌤️ **Live Weather for ${displayName}**
+
+Real-time satellite observation for **${top.name}**:
+
+• 🌡️ **Temperature**: **${live.temperatureC}°C** (${live.conditionText}, feels like **${live.apparentTempC}°C**)
+• 💧 **Relative Humidity**: **${live.humidity}%**
+• 💨 **Wind Speed**: **${live.windSpeed} km/h (${live.windDirection})**
+• 🌧️ **Precipitation Probability**: **${live.precipitationProbability}%**
+• ☀️ **Thermal Risk Level**: ${isHeatwave ? '⚠️ Severe Heat Alert' : '✅ Normal / Low Heat Stress'}
+
+💡 **Advisory**: Pleasant atmospheric conditions. Stay hydrated when stepping outdoors.`,
+              hasMapAction: false,
+            };
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // C. Active region fallback for general queries (never demand location!)
+
+  // C. Active region fallback for general queries
+  const regionName = context?.region || 'Guwahati Metropolitan Area';
+  const ambientTemp = Math.round(context?.ambientTemp ?? 30);
+  const apparentTemp = Math.round(context?.apparentTemp ?? ambientTemp + 3);
+  const conditionText = context?.conditionText || 'Partly cloudy';
+  const humidity = context?.humidity || 68;
+  const rainProb = context?.rainProb || 25;
+  const isActualHeatwave = context?.isActualHeatwave ?? (ambientTemp >= 38);
+
+  if (q.includes('kal') || q.includes('tomorrow') || q.includes('forecast')) {
+    return {
+      reply: `🌤️ **Kal Ka Mausam (${regionName})**
+
+• 🌡️ **Taapmaan**: Kal dophar me lagbhag **${ambientTemp + 2}°C** tak jayega (subah aur raat me **${ambientTemp - 5}°C**).
+• 🌧️ **Baarish Ke Aasaar**: **${rainProb}% sambhavna**
+• ☀️ **Heatwave (Loo)**: ${isActualHeatwave ? '⚠️ Dophar me tez dhoop rahegi' : '✅ **Safe hai** — Heatwave ka koi khatra nahi hai'}
+
+💡 **Salah**: Dophar me zaroori kaam ho tabhi niklein aur samay par paani peete rahein.`,
+      hasMapAction: false,
+    };
+  }
+
+  if (q.includes('ambulance') || q.includes('hospital') || q.includes('doctor') || q.includes('108')) {
+    return {
+      reply: `🚑 **Emergency Ambulance & Hospital Sahayata (${regionName})**
+
+📞 **Free Ambulance**: Turant **108** ya **112** par call karein.
+🏥 **Heatstroke Unit**: Civil Hospital aur Community Health Centers me dedicated AC wards aur cold saline infusion 24x7 uplabdh hai.`,
+      hasMapAction: false,
+    };
+  }
+
+  return {
+    reply: `👋 **Namaste! Main aapka Real-Time Weather Assistant hoon.**
+
+Aap mujhse **kisi bhi city ya ilaqe ka weather** pooch sakte hain!
+
+Jaise:
+👉 "Sohna weather kaisa hai?"
+👉 "Delhi ka taapmaan kitna hai?"
+👉 "Mumbai me baarish hogi kya?"
+👉 "Kal mausam kaisa hoga?"
+👉 "Kya heatwave ka khatra hai?"
+
+Agar kisi anjaan jagah ka mausam janna ho, toh aap niche map par pin bhi laga sakte hain!`,
+    hasMapAction: false,
+  };
 }

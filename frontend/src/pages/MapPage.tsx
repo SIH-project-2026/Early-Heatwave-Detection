@@ -73,10 +73,10 @@ export const MapPage: React.FC = () => {
   // Responsive column spans calculation
   const getMapColSpan = () => {
     if (!sidebarOpen && !activeLocation) return 'col-span-12';
-    if (!sidebarOpen && activeLocation) return 'col-span-12 lg:col-span-7 xl:col-span-8';
-    if (sidebarOpen && !activeLocation) return 'col-span-12 lg:col-span-8 xl:col-span-9';
+    if (!sidebarOpen && activeLocation) return 'col-span-12 lg:col-span-7 xl:col-span-8 lg:sticky lg:top-20 z-10';
+    if (sidebarOpen && !activeLocation) return 'col-span-12 lg:col-span-8 xl:col-span-9 lg:sticky lg:top-20 z-10';
     // Both sidebar and activeLocation open:
-    return 'col-span-12 lg:col-span-8 xl:col-span-5 2xl:col-span-5';
+    return 'col-span-12 lg:col-span-8 xl:col-span-5 2xl:col-span-5 xl:sticky xl:top-20 z-10';
   };
 
   const getDirectoryColSpan = () => {
@@ -260,8 +260,14 @@ export const MapPage: React.FC = () => {
               location={activeLocation}
               onClose={() => setSelectedLocation(null)}
               onDispatchResource={(wardId) => dispatchResource(wardId)}
-              onSendAlert={(item) => {
-                if (selectedWard) setAlertModalWard(selectedWard);
+              onSendAlert={(locOrWard) => {
+                const targetWard =
+                  (locOrWard && 'currentMetrics' in locOrWard ? (locOrWard as Ward) : null) ||
+                  selectedWard ||
+                  (locOrWard?.id ? wards?.find((w) => w.id === locOrWard.id) : null) ||
+                  wards?.[0] ||
+                  null;
+                if (targetWard) setAlertModalWard(targetWard);
               }}
             />
           </div>

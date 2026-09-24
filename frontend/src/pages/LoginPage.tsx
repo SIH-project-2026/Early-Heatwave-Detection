@@ -58,7 +58,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1017] text-slate-100 flex flex-col justify-between font-sans selection:bg-amber-500/30 selection:text-white relative overflow-hidden">
+    <div className="min-h-screen bg-black text-slate-100 flex flex-col justify-between font-sans selection:bg-amber-500/30 selection:text-white relative overflow-hidden">
       {/* Subtle Background Glows */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[450px] bg-gradient-to-b from-amber-500/10 via-sky-900/10 to-transparent blur-[130px] rounded-full" />
@@ -66,7 +66,7 @@ export const LoginPage: React.FC = () => {
       </div>
 
       {/* Top Bar */}
-      <header className="relative z-10 px-4 sm:px-8 py-3.5 border-b border-[#232838] flex items-center justify-between bg-[#11141c]/60 backdrop-blur-md">
+      <header className="relative z-10 px-4 sm:px-8 py-3.5 border-b border-[#232838] flex items-center justify-between bg-black/80 backdrop-blur-md">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white shadow-md shadow-amber-900/30">
             <Shield className="w-4 h-4 text-white" />
@@ -218,7 +218,7 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {/* Security Notice Footer */}
-          <div className="px-6 sm:px-8 py-3.5 bg-[#0f121a] border-t border-[#232838] flex items-center justify-between text-[11px] text-slate-400">
+          <div className="px-6 sm:px-8 py-3.5 bg-black border-t border-[#232838] flex items-center justify-between text-[11px] text-slate-400">
             <div className="flex items-center space-x-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>NDMA Cyber Security Protocol v4.2</span>

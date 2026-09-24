@@ -1,5 +1,5 @@
 import React from 'react';
-import { ZoomIn, ZoomOut, Home, Layers, Truck, Shield } from 'lucide-react';
+import { ZoomIn, ZoomOut, Home, Layers, Truck, Shield, Maximize2, Minimize2, Lock, Unlock } from 'lucide-react';
 
 interface MapControlsProps {
   onZoomIn: () => void;
@@ -11,6 +11,10 @@ interface MapControlsProps {
   onToggleCoverageOutline?: () => void;
   mapStyle: string;
   onChangeStyle: (style: string) => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  isLocked?: boolean;
+  onToggleLock?: () => void;
 }
 
 export const MapControls: React.FC<MapControlsProps> = ({
@@ -23,6 +27,10 @@ export const MapControls: React.FC<MapControlsProps> = ({
   onToggleCoverageOutline,
   mapStyle,
   onChangeStyle,
+  isFullscreen = false,
+  onToggleFullscreen,
+  isLocked = false,
+  onToggleLock,
 }) => {
   const getStyleLabel = () => {
     if (mapStyle === 'google_roadmap') return 'Google Maps Roadmap';
@@ -114,6 +122,56 @@ export const MapControls: React.FC<MapControlsProps> = ({
             {getStyleLabel()}
           </span>
         </button>
+
+        {/* Fix / Lock Map Position Toggle */}
+        {onToggleLock && (
+          <button
+            onClick={onToggleLock}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl text-xs font-semibold transition-colors shrink-0 relative group cursor-pointer ${
+              isLocked
+                ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm ring-1 ring-amber-400/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+            }`}
+            title={isLocked ? 'Map Locked (Fixed) • Click to Unlock Drag & Pan' : 'Lock Map Position (Fixed in place)'}
+            aria-label={isLocked ? 'Unlock Map Position' : 'Lock Map Position'}
+          >
+            {isLocked ? (
+              <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+            ) : (
+              <Unlock className="w-4 h-4 text-slate-300 group-hover:text-white shrink-0" />
+            )}
+
+            {/* Hover Tooltip */}
+            <span className="absolute right-11 px-2.5 py-1 rounded-xl bg-[#13141a] text-slate-200 text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity border border-white/[0.08] pointer-events-none shadow-xl">
+              {isLocked ? 'Map Locked (Fixed) • Click to Unlock' : 'Fix / Lock Map Position'}
+            </span>
+          </button>
+        )}
+
+        {/* Fullscreen Map Toggle */}
+        {onToggleFullscreen && (
+          <button
+            onClick={onToggleFullscreen}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl text-xs font-semibold transition-colors shrink-0 relative group cursor-pointer ${
+              isFullscreen
+                ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40 shadow-sm ring-1 ring-rose-400/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+            }`}
+            title={isFullscreen ? 'Exit Fullscreen Map (Esc)' : 'Enter Fullscreen Map'}
+            aria-label={isFullscreen ? 'Exit Fullscreen Map' : 'Enter Fullscreen Map'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : (
+              <Maximize2 className="w-4 h-4 text-slate-300 group-hover:text-white shrink-0" />
+            )}
+
+            {/* Hover Tooltip */}
+            <span className="absolute right-11 px-2.5 py-1 rounded-xl bg-[#13141a] text-slate-200 text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity border border-white/[0.08] pointer-events-none shadow-xl">
+              {isFullscreen ? 'Exit Fullscreen (Esc)' : 'Fullscreen Map'}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );

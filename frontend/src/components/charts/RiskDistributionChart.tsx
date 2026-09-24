@@ -41,17 +41,17 @@ export const RiskDistributionChart: React.FC<RiskDistributionChartProps> = ({ su
       <div className="h-64 w-full pt-2">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: -5, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#232838" opacity={0.8} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1c24" opacity={0.8} />
             <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
             <YAxis width={25} stroke="#94a3b8" fontSize={10} allowDecimals={false} tickLine={false} />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#181920',
-                borderColor: 'rgba(255, 255, 255, 0.1)',
+                backgroundColor: '#08090c',
+                borderColor: '#1a1c24',
                 borderRadius: '0.75rem',
                 fontSize: '0.75rem',
                 color: '#f8fafc',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.8)',
               }}
             />
             <Bar dataKey="count" name="Wards Count" radius={[6, 6, 0, 0]}>

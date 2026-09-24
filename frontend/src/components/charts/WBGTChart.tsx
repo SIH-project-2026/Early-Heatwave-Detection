@@ -35,17 +35,17 @@ export const WBGTChart: React.FC<WBGTChartProps> = ({ data }) => {
       <div className="h-64 w-full pt-2">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 10, left: -5, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#232838" opacity={0.8} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1c24" opacity={0.8} />
             <XAxis dataKey="timeLabel" stroke="#94a3b8" fontSize={10} tickLine={false} />
             <YAxis width={30} stroke="#94a3b8" fontSize={10} domain={[20, 40]} tickLine={false} />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#161922',
-                borderColor: '#232838',
+                backgroundColor: '#08090c',
+                borderColor: '#1a1c24',
                 borderRadius: '0.75rem',
                 fontSize: '0.75rem',
                 color: '#f8fafc',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.8)',
               }}
             />
             <ReferenceLine y={32} stroke="#F97316" strokeDasharray="4 4" label={{ value: 'Heavy Labor Suspension (32°C)', fill: '#F97316', fontSize: 10, position: 'top' }} />

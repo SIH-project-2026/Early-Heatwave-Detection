@@ -6,8 +6,8 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   'http://localhost:8000/api';
 
-// By default use live telemetry generator unless VITE_USE_MOCK=false
-export const isMockMode = import.meta.env.VITE_USE_MOCK === 'false' ? false : true;
+// Default to live backend FastAPI + MongoDB integration unless VITE_USE_MOCK is explicitly true
+export const isMockMode = import.meta.env.VITE_USE_MOCK === 'true';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -39,8 +39,26 @@ apiClient.interceptors.response.use(
 );
 
 // Helper API methods connecting to FastAPI backend endpoints
-export const getWards = async (regionId?: string) => (await apiClient.get('/wards', { params: { region: regionId } })).data;
-export const getCurrentRisk = async (regionId?: string) => (await apiClient.get('/risk', { params: { region: regionId } })).data;
-export const getForecast = async (regionId?: string) => (await apiClient.get('/forecast', { params: { region: regionId } })).data;
-export const getAlerts = async (regionId?: string) => (await apiClient.get('/alerts', { params: { region: regionId } })).data;
-export const getResources = async (regionId?: string) => (await apiClient.get('/resources', { params: { region: regionId } })).data;
+export const getWards = async (regionId?: string) =>
+  (await apiClient.get('/wards', { params: { regionId } })).data;
+
+export const getCurrentRisk = async (regionId?: string) =>
+  (await apiClient.get('/risk', { params: { regionId } })).data;
+
+export const getForecast = async (regionId?: string) =>
+  (await apiClient.get('/forecast', { params: { regionId } })).data;
+
+export const getAlerts = async (regionId?: string) =>
+  (await apiClient.get('/alerts', { params: { regionId } })).data;
+
+export const getResources = async (regionId?: string) =>
+  (await apiClient.get('/resources', { params: { regionId } })).data;
+
+export const checkBackendHealth = async () => {
+  try {
+    const res = await apiClient.get('/health');
+    return res.data;
+  } catch {
+    return { status: 'offline', database: 'disconnected' };
+  }
+};

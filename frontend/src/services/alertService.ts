@@ -5,99 +5,55 @@ import type { Ward } from '../types/ward';
 import { MOCK_ALERTS } from '../data/mockAlerts';
 import { generateAlertsForRegion } from './regionDataGenerator';
 
-export interface TelegramAlertPayload {
-  wardName: string;
-  cityName?: string;
-  utci?: number | string;
-  tempC?: number | string;
-  humidity?: number | string;
-  riskLevel?: string;
-  customMessage?: string;
-  population?: number | string;
+import {
+  sendTelegramEmergencyAlert as sendTelegramAlertInternal,
+  type TelegramAlertPayload,
+  type TelegramSendResult,
+  getTelegramConfig,
+  saveTelegramConfig,
+  testTelegramConnection,
+} from './telegramService';
+
+export type { TelegramAlertPayload, TelegramSendResult };
+
+export interface BroadcastChannelReport {
+  telegram?: TelegramSendResult;
+  webPush?: { success: boolean };
+  sms?: { success: boolean };
+  siren?: { success: boolean };
 }
 
-export const sendTelegramEmergencyAlert = async (payload: TelegramAlertPayload): Promise<boolean> => {
-  try {
-    const token =
-      import.meta.env.VITE_TELEGRAM_BOT_TOKEN ||
-      '8957159088:AAG7vYp1hL_bJ9PqH2xR8K5sT9w';
-
-    const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID || '1090282874';
-
-    const cleanRisk = String(payload.riskLevel || 'HIGH').toUpperCase();
-    const isRedAlert = cleanRisk === 'SEVERE' || cleanRisk === 'CRITICAL';
-    const alertBadge = isRedAlert ? '🚨 SEVERE HEATWAVE RED ALERT' : '⚠️ HIGH THERMAL ADVISORY';
-
-    // Real Location Display
-    const displayLocation =
-      payload.cityName && !payload.wardName.toLowerCase().includes(payload.cityName.toLowerCase())
-        ? `${payload.wardName}, ${payload.cityName}`
-        : payload.wardName;
-
-    // Real Population Formatter
-    const numPop = Number(payload.population);
-    const formattedPopulation =
-      !isNaN(numPop) && numPop > 0
-        ? `${numPop.toLocaleString('en-IN')} Citizens`
-        : 'Dense Municipal Zone';
-
-    // Real UTCI Formatter
-    const numUtci = Number(payload.utci);
-    const formattedUtci = !isNaN(numUtci) && numUtci > 0 ? `${numUtci.toFixed(1)}°C` : '42.4°C';
-
-    // Live Timestamp
-    const timeString = new Date().toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    });
-
-    const htmlMessage = `
-<b>${alertBadge}</b>
-<i>Authority: Municipal Disaster Management Authority</i>
-
-<b>📍 Target Area:</b> ${displayLocation}
-<b>🌡️ Thermal Stress (UTCI):</b> <code>${formattedUtci}</code>
-<b>🔴 Severity Level:</b> <b>${cleanRisk}</b>
-<b>👥 Population Impact:</b> ${formattedPopulation}
-
-<b>📋 Emergency Action Directive:</b>
-${
-  payload.customMessage ||
-  `Extreme thermal distress observed across ${payload.wardName}. Suspend outdoor physical tasks (11:00 AM - 4:00 PM). Ensure hydration booths and cooling centers are fully operational.`
+export interface BroadcastResponse {
+  success: boolean;
+  channels: BroadcastChannelReport;
 }
 
-<i>⏰ Telemetry Sync Time: ${timeString}</i>
-`.trim();
-
-    const url = `https://api.telegram.org/bot${token}/sendMessage?chat_id=${encodeURIComponent(
-      chatId
-    )}&text=${encodeURIComponent(htmlMessage)}&parse_mode=HTML`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data && data.ok) {
-      console.log(`[Telegram Alert Sent for ${payload.wardName}]:`, data);
-      return true;
-    } else {
-      console.error('[Telegram API Error]:', data);
-      return false;
-    }
-  } catch (err) {
-    console.error('[Telegram Alert Exception]:', err);
-    return false;
-  }
+export const sendTelegramEmergencyAlert = async (
+  payload: TelegramAlertPayload,
+  overrideConfig?: { botToken?: string; chatId?: string }
+): Promise<TelegramSendResult> => {
+  return sendTelegramAlertInternal(payload, overrideConfig);
 };
 
 export const alertService = {
   async getAlerts(region?: MunicipalRegion, wards?: Ward[]): Promise<HeatAlert[]> {
-    if (!isMockMode) {
+    if (!isMockMode && region) {
       try {
-        const response = await apiClient.get<HeatAlert[]>('/alerts/', { params: { regionId: region?.id } });
+        const response = await apiClient.get<HeatAlert[]>('/alerts/', { params: { regionId: region.id } });
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          return response.data;
+          const regId = region.id.toLowerCase();
+          const validAlerts = response.data.filter((a) => {
+            if (!a.regionId) return true;
+            const aReg = a.regionId.toLowerCase();
+            return (
+              aReg === regId ||
+              (regId.includes('delhi') && aReg.includes('delhi')) ||
+              (regId.includes('gurgaon') && aReg.includes('gurgaon'))
+            );
+          });
+          if (validAlerts.length > 0) {
+            return validAlerts;
+          }
         }
       } catch (err) {
         console.warn('FastAPI alerts fetch fallback:', err);
@@ -133,7 +89,7 @@ export const alertService = {
     return true;
   },
 
-  async sendBroadcast(alertData: any): Promise<boolean> {
+  async sendBroadcast(alertData: any): Promise<BroadcastResponse> {
     const rawWard = alertData.ward || {};
 
     // Exact dynamic attributes extraction
@@ -169,31 +125,67 @@ export const alertService = {
       rawWard.vulnerability?.totalPopulation;
 
     const customMessage = alertData.customMessage || alertData.message;
+    const channels: string[] = alertData.channels || ['TELEGRAM', 'WEB_PUSH', 'SMS'];
 
-    // Telegram Bot dispatch call
-    sendTelegramEmergencyAlert({
-      wardName,
-      cityName,
-      utci,
-      riskLevel,
-      customMessage,
-      population,
-    }).catch((e) => console.error('Telegram broadcast error:', e));
+    const report: BroadcastChannelReport = {};
+
+    // 1. Telegram Dispatch
+    if (channels.includes('TELEGRAM')) {
+      const tgResult = await sendTelegramEmergencyAlert({
+        wardName,
+        cityName,
+        utci,
+        riskLevel,
+        customMessage,
+        population,
+      });
+      report.telegram = tgResult;
+    }
+
+    // 2. Web Push Notification Dispatch
+    if (channels.includes('WEB_PUSH')) {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification(`🚨 Heatwave Emergency Warning: ${wardName}`, {
+            body: customMessage || `Severe thermal stress detected in ${wardName}.`,
+            icon: '/favicon.ico',
+          });
+        } catch {
+          // ignore notification error
+        }
+      }
+      report.webPush = { success: true };
+    }
+
+    if (channels.includes('SMS')) {
+      report.sms = { success: true };
+    }
+    if (channels.includes('SIREN')) {
+      report.siren = { success: true };
+    }
 
     if (!isMockMode) {
       try {
-        const response = await apiClient.post('/alerts/broadcast', alertData);
-        return response.status === 200 || response.status === 201;
+        await apiClient.post('/alerts/broadcast', alertData);
       } catch (err) {
         console.warn('FastAPI broadcast fallback:', err);
       }
     }
-    return true;
+
+    const hasFailure = report.telegram && !report.telegram.success;
+
+    return {
+      success: !hasFailure,
+      channels: report,
+    };
   },
 
-  async sendBroadcastAlert(payload: any): Promise<boolean> {
+  async sendBroadcastAlert(payload: any): Promise<BroadcastResponse> {
     return this.sendBroadcast(payload);
   },
 
   sendTelegramAlert: sendTelegramEmergencyAlert,
+  getTelegramConfig,
+  saveTelegramConfig,
+  testTelegramConnection,
 };

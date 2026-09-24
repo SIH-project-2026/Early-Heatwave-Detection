@@ -26,7 +26,18 @@ import {
   Moon,
   Monitor,
   LogOut,
+  MessageSquare,
+  EyeOff,
+  Loader2,
+  Check,
+  Send as SendIcon,
 } from 'lucide-react';
+import {
+  getTelegramConfig,
+  saveTelegramConfig,
+  testTelegramConnection,
+  type TelegramTestResult,
+} from '../services/telegramService';
 import { useLanguage, LANGUAGES, type LanguageCode } from '../context/LanguageContext';
 import { useHeatwave } from '../context/HeatwaveContext';
 import { useTheme } from '../context/ThemeContext';
@@ -87,6 +98,43 @@ export const SettingsPage: React.FC = () => {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isPlayingAlertSound, setIsPlayingAlertSound] = useState(false);
   const [isPlayingDispatchSound, setIsPlayingDispatchSound] = useState(false);
+
+  // Telegram Integration State
+  const [tgConfig, setTgConfig] = useState(getTelegramConfig);
+  const [tgToken, setTgToken] = useState(() => getTelegramConfig().botToken);
+  const [tgChatId, setTgChatId] = useState(() => getTelegramConfig().chatId);
+  const [showTgToken, setShowTgToken] = useState(false);
+  const [isTestingTg, setIsTestingTg] = useState(false);
+  const [tgTestResult, setTgTestResult] = useState<TelegramTestResult | null>(null);
+  const [tgSaveSuccess, setTgSaveSuccess] = useState(false);
+
+  const handleSaveTelegram = () => {
+    const updated = saveTelegramConfig({
+      botToken: tgToken.trim(),
+      chatId: tgChatId.trim(),
+    });
+    setTgConfig(updated);
+    setTgSaveSuccess(true);
+    setTimeout(() => setTgSaveSuccess(false), 2500);
+  };
+
+  const handleTestTelegram = async () => {
+    setIsTestingTg(true);
+    setTgTestResult(null);
+    try {
+      const res = await testTelegramConnection(tgToken.trim(), tgChatId.trim());
+      setTgTestResult(res);
+      if (res.success) {
+        const updated = saveTelegramConfig({
+          botToken: tgToken.trim(),
+          chatId: tgChatId.trim(),
+        });
+        setTgConfig(updated);
+      }
+    } finally {
+      setIsTestingTg(false);
+    }
+  };
 
   // Preview gentle heatwave alert chime
   const handlePreviewAlertSound = () => {
@@ -383,6 +431,137 @@ export const SettingsPage: React.FC = () => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Section 1.5: Telegram Emergency Broadcast Gateway */}
+      <div className="p-6 sm:p-7 rounded-3xl bg-[#181920] border border-white/[0.08] space-y-6 shadow-2xl card-highlight-rim">
+        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5 flex-wrap gap-2">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400">
+              <MessageSquare className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-white uppercase tracking-wider">
+                Telegram Emergency Broadcast Gateway
+              </h2>
+              <p className="text-xs text-slate-400">
+                Direct statutory heatwave alerts to Telegram channels, groups, and citizens
+              </p>
+            </div>
+          </div>
+          <span
+            className={`text-xs font-mono px-2.5 py-1 rounded-full font-bold ${
+              tgConfig.botToken && tgConfig.chatId
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+            }`}
+          >
+            {tgConfig.botToken && tgConfig.chatId ? '● Gateway Connected' : '● Credentials Required'}
+          </span>
+        </div>
+
+        {tgSaveSuccess && (
+          <div className="p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center space-x-2">
+            <Check className="w-4 h-4 shrink-0" />
+            <span>Telegram Bot credentials saved to browser memory!</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs sm:text-sm">
+          {/* Bot Token */}
+          <div className="bg-[#13141a] p-5 sm:p-6 rounded-2xl border border-white/[0.06] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-white block text-sm">Telegram Bot Token</label>
+              <button
+                type="button"
+                onClick={() => setShowTgToken(!showTgToken)}
+                className="text-xs text-slate-400 hover:text-slate-200 flex items-center space-x-1 cursor-pointer"
+              >
+                {showTgToken ? (
+                  <>
+                    <EyeOff className="w-3.5 h-3.5" /> <span>Hide</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3.5 h-3.5" /> <span>Show</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <span className="text-slate-400 text-xs block leading-relaxed">
+              Issued by <span className="text-sky-300 font-mono">@BotFather</span> when creating your bot.
+            </span>
+            <input
+              type={showTgToken ? 'text' : 'password'}
+              value={tgToken}
+              onChange={(e) => setTgToken(e.target.value)}
+              placeholder="e.g. 123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+              className="w-full bg-[#181920] border border-white/[0.08] rounded-xl p-3 text-xs sm:text-sm text-slate-100 font-mono focus:outline-none focus:border-sky-500/60"
+            />
+          </div>
+
+          {/* Chat ID */}
+          <div className="bg-[#13141a] p-5 sm:p-6 rounded-2xl border border-white/[0.06] space-y-2.5">
+            <label className="font-bold text-white block text-sm">Target Chat ID or Channel</label>
+            <span className="text-slate-400 text-xs block leading-relaxed">
+              Personal Chat ID from <span className="text-sky-300 font-mono">@userinfobot</span> or channel <span className="text-sky-300 font-mono">@channel_name</span>.
+            </span>
+            <input
+              type="text"
+              value={tgChatId}
+              onChange={(e) => setTgChatId(e.target.value)}
+              placeholder="e.g. 1090282874 or @heatwave_alerts_city"
+              className="w-full bg-[#181920] border border-white/[0.08] rounded-xl p-3 text-xs sm:text-sm text-slate-100 font-mono focus:outline-none focus:border-sky-500/60"
+            />
+          </div>
+        </div>
+
+        {/* Action Buttons & Status */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-white/[0.06]">
+          <div className="text-xs text-slate-400">
+            Tip: Press <b>START</b> on your bot in Telegram first before sending test pings.
+          </div>
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={handleTestTelegram}
+              disabled={isTestingTg || !tgToken.trim()}
+              className="px-4 py-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 font-bold text-xs transition-all border border-sky-500/30 flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {isTestingTg ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Verifying Bot...</span>
+                </>
+              ) : (
+                <>
+                  <SendIcon className="w-3.5 h-3.5" />
+                  <span>Send Test Ping</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveTelegram}
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all border border-white/[0.08] flex items-center space-x-1.5 cursor-pointer"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Save Telegram Settings</span>
+            </button>
+          </div>
+        </div>
+
+        {tgTestResult && (
+          <div
+            className={`p-4 rounded-2xl text-xs sm:text-sm border ${
+              tgTestResult.success
+                ? 'bg-emerald-950/25 border-emerald-500/40 text-emerald-300'
+                : 'bg-rose-950/25 border-rose-500/40 text-rose-200'
+            }`}
+          >
+            <p className="font-semibold">{tgTestResult.message}</p>
+          </div>
+        )}
       </div>
 
       {/* Section 2: Regional & Language Preferences */}

@@ -251,13 +251,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {mobileOpen && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden transition-opacity"
         />
       )}
 
       {/* Main Sidebar Aside Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 bg-[#0d0e12] border-r border-white/[0.06] flex flex-col justify-between transition-[width,transform] duration-250 ease-out select-none font-sans shadow-2xl ${
+        className={`fixed top-0 bottom-0 left-0 z-40 bg-black border-r border-white/[0.06] flex flex-col justify-between transition-[width,transform] duration-250 ease-out select-none font-sans shadow-2xl ${
           isCollapsed ? 'w-16' : 'w-64'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
@@ -581,7 +581,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* BOTTOM USER PROFILE CARD (Exact "Dana Castellanos / Operations Controller" Layout) */}
-        <div className="p-3 border-t border-white/[0.06] bg-[#0d0e12] shrink-0">
+        <div className="p-3 border-t border-white/[0.06] bg-black shrink-0">
           <div
             onClick={() => {
               navigate('/settings');

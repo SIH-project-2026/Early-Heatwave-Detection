@@ -27,7 +27,7 @@ export const Layout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0e12] bg-canvas flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-black bg-canvas flex flex-col font-sans transition-colors duration-200">
       <Navbar
         onToggleMobileSidebar={() => setMobileOpen((prev) => !prev)}
         isCollapsed={isCollapsed}

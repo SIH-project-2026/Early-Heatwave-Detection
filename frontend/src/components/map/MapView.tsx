@@ -8,6 +8,7 @@ import type { LocationItem } from '../../types/location';
 import { RiskLegend } from './RiskLegend';
 import { MapControls } from './MapControls';
 import { getRiskConfig } from '../../utils/riskUtils';
+import { Lock } from 'lucide-react';
 
 interface MapViewProps {
   className?: string;
@@ -52,6 +53,31 @@ export const MapView: React.FC<MapViewProps> = ({
   const showCoverageOutlineRef = useRef(showCoverageOutline);
   showCoverageOutlineRef.current = showCoverageOutline;
   const isInitialStyleMount = useRef(true);
+
+  // Fullscreen Command Center Map State & Ref
+  const mapWrapperRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Map Lock / Fixed Position State: locks drag, pan, and scroll zoom
+  const [isLocked, setIsLocked] = useState(false);
+
+  // Synchronize Map Lock state: when locked, drag, pan, and zoom are disabled
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (isLocked) {
+      mapRef.current.dragPan.disable();
+      mapRef.current.scrollZoom.disable();
+      mapRef.current.boxZoom.disable();
+      mapRef.current.doubleClickZoom.disable();
+      mapRef.current.touchZoomRotate.disable();
+    } else {
+      mapRef.current.dragPan.enable();
+      mapRef.current.boxZoom.enable();
+      mapRef.current.doubleClickZoom.enable();
+      mapRef.current.touchZoomRotate.enable();
+      mapRef.current.scrollZoom.enable();
+    }
+  }, [isLocked]);
   // Default to crystal-clear Google Satellite Hybrid layer
   const [mapStyle, setMapStyle] = useState<string>(() => {
     try {
@@ -86,6 +112,62 @@ export const MapView: React.FC<MapViewProps> = ({
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [currentZoomInt, setCurrentZoomInt] = useState(12);
+
+  // Synchronize fullscreen state across native browser events & hotkeys
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentFs = Boolean(
+        document.fullscreenElement &&
+        (document.fullscreenElement === mapWrapperRef.current || mapWrapperRef.current?.contains(document.fullscreenElement))
+      );
+      setIsFullscreen(isCurrentFs);
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+        mapRef.current?.resize();
+      }, 80);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    if (!mapWrapperRef.current) return;
+
+    if (!document.fullscreenElement) {
+      try {
+        if (mapWrapperRef.current.requestFullscreen) {
+          await mapWrapperRef.current.requestFullscreen();
+        } else if ((mapWrapperRef.current as any).webkitRequestFullscreen) {
+          await (mapWrapperRef.current as any).webkitRequestFullscreen();
+        }
+      } catch (err) {
+        console.warn('Native requestFullscreen failed, using CSS fallback:', err);
+        setIsFullscreen((prev) => !prev);
+      }
+    } else {
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+      } catch (err) {
+        console.warn('exitFullscreen error:', err);
+        setIsFullscreen(false);
+      }
+    }
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      mapRef.current?.resize();
+    }, 100);
+  };
 
   const googleApiKey =
     import.meta.env.VITE_GOOGLE_MAPS_API_KEY ||
@@ -151,11 +233,24 @@ export const MapView: React.FC<MapViewProps> = ({
     return googleSatelliteStyle;
   };
 
-  // Calculate dynamic bounding box across all wards
+  // Calculate dynamic bounding box across all wards strictly for the active region
   const getBounds = (): maplibregl.LngLatBoundsLike | null => {
-    if (wards.length === 0) return null;
+    if (!activeRegion) return null;
+    const [cLng, cLat] = activeRegion.coordinates;
+    const regionWards = wards.filter((w) => {
+      if (!w.centroid || !Array.isArray(w.centroid) || w.centroid.length < 2) return false;
+      return Math.abs(w.centroid[0] - cLng) <= 1.0 && Math.abs(w.centroid[1] - cLat) <= 1.0;
+    });
+
+    if (regionWards.length === 0) {
+      return [
+        [cLng - 0.12, cLat - 0.12],
+        [cLng + 0.12, cLat + 0.12],
+      ];
+    }
+
     let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
-    wards.forEach((w) => {
+    regionWards.forEach((w) => {
       const [lng, lat] = w.centroid;
       if (lng < minLng) minLng = lng;
       if (lng > maxLng) maxLng = lng;
@@ -163,8 +258,8 @@ export const MapView: React.FC<MapViewProps> = ({
       if (lat > maxLat) maxLat = lat;
     });
     return [
-      [minLng - 0.015, minLat - 0.015],
-      [maxLng + 0.015, maxLat + 0.015],
+      [minLng - 0.02, minLat - 0.02],
+      [maxLng + 0.02, maxLat + 0.02],
     ];
   };
 
@@ -660,9 +755,15 @@ export const MapView: React.FC<MapViewProps> = ({
     if (!mapRef.current || !mapLoaded) return;
 
     const isCompactMode = currentZoomInt < 11;
+    const [cLng, cLat] = activeRegion?.coordinates || [77.11, 28.54];
 
-    // Clean up markers from previous region
-    const activeWardIds = new Set(wards.map((w) => w.id));
+    // Filter to wards strictly belonging to active region perimeter
+    const localWards = wards.filter(
+      (w) => w.centroid && Math.abs(w.centroid[0] - cLng) <= 1.0 && Math.abs(w.centroid[1] - cLat) <= 1.0
+    );
+
+    // Clean up markers from previous region or wards outside region
+    const activeWardIds = new Set(localWards.map((w) => w.id));
     wardMarkersMapRef.current.forEach(({ marker }, id) => {
       if (!activeWardIds.has(id)) {
         marker.remove();
@@ -670,7 +771,7 @@ export const MapView: React.FC<MapViewProps> = ({
       }
     });
 
-    wards.forEach((ward) => {
+    localWards.forEach((ward) => {
       const isSelected =
         selectedLocation?.id === ward.id ||
         selectedLocation?.code === ward.code ||
@@ -754,8 +855,13 @@ export const MapView: React.FC<MapViewProps> = ({
       return;
     }
 
-    // Clean up resource markers from previous region
-    const activeResIds = new Set(resources.map((r) => r.id));
+    const [cLng, cLat] = activeRegion?.coordinates || [77.11, 28.54];
+    const localResources = resources.filter(
+      (r) => r.coordinates && Math.abs(r.coordinates[0] - cLng) <= 1.0 && Math.abs(r.coordinates[1] - cLat) <= 1.0
+    );
+
+    // Clean up resource markers from previous region or far away
+    const activeResIds = new Set(localResources.map((r) => r.id));
     resourceMarkersMapRef.current.forEach(({ marker }, id) => {
       if (!activeResIds.has(id)) {
         marker.remove();
@@ -763,8 +869,8 @@ export const MapView: React.FC<MapViewProps> = ({
       }
     });
 
-    resources.forEach((res) => {
-      const locItem = resourceToLocationItem(res);
+    localResources.forEach((res) => {
+      const locItem = resourceToLocationItem(res, wards);
       const isSelected = selectedLocation?.id === res.id;
 
       let cached = resourceMarkersMapRef.current.get(res.id);
@@ -877,7 +983,14 @@ export const MapView: React.FC<MapViewProps> = ({
   }, [selectedLocation, mapLoaded]);
 
   return (
-    <div className={`relative w-full ${height} rounded-3xl overflow-hidden border border-white/[0.08] shadow-2xl card-highlight-rim ${className}`}>
+    <div
+      ref={mapWrapperRef}
+      className={`relative w-full ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 h-screen w-screen rounded-none border-none shadow-none bg-black'
+          : `${height} rounded-3xl overflow-hidden border border-white/[0.08] shadow-2xl card-highlight-rim`
+      } ${className}`}
+    >
       {/* Map Element Container */}
       <div ref={mapContainer} className="w-full h-full" />
 
@@ -945,6 +1058,16 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       )}
 
+      {/* Map Lock State Badge Indicator */}
+      {isLocked && (
+        <div className="absolute top-3.5 right-16 sm:right-20 z-20 pointer-events-none animate-in fade-in duration-200">
+          <div className="px-3 py-1.5 rounded-2xl bg-amber-500/20 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[11px] font-mono font-bold flex items-center space-x-1.5 shadow-xl">
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <span>MAP LOCKED (FIXED)</span>
+          </div>
+        </div>
+      )}
+
       {/* Floating Map Controls - Fixed & Stable Position */}
       <div className="absolute top-3 right-3 z-20 pointer-events-auto select-none">
         <MapControls
@@ -957,6 +1080,10 @@ export const MapView: React.FC<MapViewProps> = ({
           onToggleCoverageOutline={() => setShowCoverageOutline((prev) => !prev)}
           mapStyle={mapStyle}
           onChangeStyle={handleStyleChange}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={handleToggleFullscreen}
+          isLocked={isLocked}
+          onToggleLock={() => setIsLocked((prev) => !prev)}
         />
       </div>
 

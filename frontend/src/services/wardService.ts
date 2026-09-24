@@ -12,12 +12,19 @@ import { fetchLiveWeatherForCoords, type LiveWeatherData } from './liveWeatherSe
 
 export const wardService = {
   async getWards(region?: MunicipalRegion, liveWeather?: LiveWeatherData): Promise<Ward[]> {
-    if (!isMockMode) {
+    if (!isMockMode && region) {
       try {
-        // Trailing slash add kiya hai (/wards/) redirect hatane ke liye
-        const response = await apiClient.get<Ward[]>('/wards/', { params: { regionId: region?.id } });
+        const response = await apiClient.get<Ward[]>('/wards/', { params: { regionId: region.id } });
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          return response.data;
+          // Geographic sanity filter: ensure all wards strictly belong to this municipal region
+          const [cLng, cLat] = region.coordinates;
+          const validWards = response.data.filter((w) => {
+            if (!w.centroid || !Array.isArray(w.centroid) || w.centroid.length < 2) return false;
+            return Math.abs(w.centroid[0] - cLng) <= 1.2 && Math.abs(w.centroid[1] - cLat) <= 1.2;
+          });
+          if (validWards.length > 0) {
+            return validWards;
+          }
         }
       } catch (err) {
         console.warn('FastAPI backend offline, switching to live satellite telemetry generator:', err);
@@ -51,16 +58,15 @@ export const wardService = {
   },
 
   async getWardGeoJSON(hourOffset = 0, wards?: Ward[], region?: MunicipalRegion): Promise<any> {
-    if (!isMockMode) {
-      try {
-        const response = await apiClient.get(`/wards/geojson`, { params: { hour: hourOffset } });
-        if (response.data) return response.data;
-      } catch (err) {
-        console.warn('FastAPI geojson fallback:', err);
-      }
-    }
-    const targetWards = wards && wards.length > 0 ? wards : region ? generateWardsForRegion(region) : MOCK_WARDS;
-    return generateGeoJSONForWards(targetWards, hourOffset);
+    const rawWards = wards && wards.length > 0 ? wards : region ? generateWardsForRegion(region) : MOCK_WARDS;
+    const targetWards = region
+      ? rawWards.filter((w) => {
+          if (!w.centroid) return false;
+          return Math.abs(w.centroid[0] - region.coordinates[0]) <= 1.2 && Math.abs(w.centroid[1] - region.coordinates[1]) <= 1.2;
+        })
+      : rawWards;
+    const safeWards = targetWards.length > 0 ? targetWards : (region ? generateWardsForRegion(region) : MOCK_WARDS);
+    return generateGeoJSONForWards(safeWards, hourOffset);
   },
   getRegionCoverageGeoJSON(region: MunicipalRegion, wards?: Ward[]): any {
     const targetWards = wards && wards.length > 0 ? wards : generateWardsForRegion(region);

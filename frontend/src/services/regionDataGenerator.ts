@@ -98,26 +98,29 @@ export function getRegionBoundaryCoordinates(region: MunicipalRegion, wards?: Wa
     region.name.toLowerCase().includes('gurgaon') ||
     region.name.toLowerCase().includes('gurugram');
 
+  const [centerLng, centerLat] = region.coordinates;
   const allPoints: [number, number][] = [];
-  const targetWards = wards && wards.length > 0 ? wards : generateWardsForRegion(region);
 
-  // 1. If Gurugram / Delhi-Gurgaon, anchor the municipal boundary points for Manesar, Panchgaon, Farukh Nagar, Sohna
-  if (isGurgaon) {
+  // Filter input wards to only include those belonging strictly to this local region
+  const rawWards = wards && wards.length > 0 ? wards : generateWardsForRegion(region);
+  const localizedWards = rawWards.filter((w) => {
+    if (!w.centroid || !Array.isArray(w.centroid) || w.centroid.length < 2) return false;
+    return Math.abs(w.centroid[0] - centerLng) <= 1.0 && Math.abs(w.centroid[1] - centerLat) <= 1.0;
+  });
+
+  const targetWards = localizedWards.length > 0 ? localizedWards : generateWardsForRegion(region);
+
+  // 1. If Gurugram / Delhi-Gurgaon and coordinates match NCR, anchor the municipal boundary points
+  if (isGurgaon && Math.abs(centerLng - 77.05) < 0.6 && Math.abs(centerLat - 28.45) < 0.6) {
     GURUGRAM_MUNICIPAL_BOUNDARY.forEach((pt) => allPoints.push([pt[0], pt[1]]));
   }
 
   // 2. Include all monitored ward centroids and their full polygon perimeter vertices
-  if (targetWards.length > 0) {
-    targetWards.forEach((w, idx) => {
-      allPoints.push([w.centroid[0], w.centroid[1]]);
-      const polygonCoords = createWardPolygon(w.centroid[0], w.centroid[1], 0.024, idx)[0];
-      polygonCoords.forEach((pt) => allPoints.push([pt[0], pt[1]]));
-    });
-  } else {
-    const [cLng, cLat] = region.coordinates;
-    const fallbackCoords = createWardPolygon(cLng, cLat, 0.06)[0];
-    fallbackCoords.forEach((pt) => allPoints.push([pt[0], pt[1]]));
-  }
+  targetWards.forEach((w, idx) => {
+    allPoints.push([w.centroid[0], w.centroid[1]]);
+    const polygonCoords = createWardPolygon(w.centroid[0], w.centroid[1], 0.024, idx)[0];
+    polygonCoords.forEach((pt) => allPoints.push([pt[0], pt[1]]));
+  });
 
   // 3. Compute convex hull enclosing all administrative and operational points
   const hull = computeConvexHull(allPoints);
@@ -126,22 +129,20 @@ export function getRegionBoundaryCoordinates(region: MunicipalRegion, wards?: Wa
     return createWardPolygon(cLng, cLat, 0.06)[0];
   }
 
-  // 4. Expand outward with a generous buffer margin (0.026 degrees, ~2.8km)
-  // so that all wards, labels, and emergency units sit comfortably INSIDE the boundary
-  const centerLng = hull.reduce((sum, p) => sum + p[0], 0) / hull.length;
-  const centerLat = hull.reduce((sum, p) => sum + p[1], 0) / hull.length;
-
   const bufferDegrees = 0.026;
+  const hullCenterLng = hull.reduce((sum, p) => sum + p[0], 0) / hull.length;
+  const hullCenterLat = hull.reduce((sum, p) => sum + p[1], 0) / hull.length;
+
   const expandedHull = hull.map(([lng, lat], i) => {
-    const dLng = lng - centerLng;
-    const dLat = lat - centerLat;
+    const dLng = lng - hullCenterLng;
+    const dLat = lat - hullCenterLat;
     const dist = Math.sqrt(dLng * dLng + dLat * dLat);
     const angle = Math.atan2(dLat, dLng);
     const ripple = 1 + Math.sin(angle * 4 + i) * 0.03;
     const factor = dist > 0 ? (dist + bufferDegrees * ripple) / dist : 1;
     return [
-      Number((centerLng + dLng * factor).toFixed(5)),
-      Number((centerLat + dLat * factor).toFixed(5)),
+      Number((hullCenterLng + dLng * factor).toFixed(5)),
+      Number((hullCenterLat + dLat * factor).toFixed(5)),
     ] as [number, number];
   });
 
@@ -187,15 +188,12 @@ export function generateRegionCoverageOutlineGeoJSON(region: MunicipalRegion, wa
 export function generateWardsForRegion(region: MunicipalRegion, liveWeather?: LiveWeatherData): Ward[] {
   const [centerLng, centerLat] = region.coordinates;
   const cityName = region.name.split(' ')[0] || region.name;
-  const isSevere = region.riskStatus === 'SEVERE';
-  const isHigh = region.riskStatus === 'HIGH';
-
-  // Anchor to live telemetry if available, otherwise sensible regional fallback
-  const baseTemp = liveWeather?.temperatureC ?? (isSevere ? 36.8 : isHigh ? 34.0 : 31.0);
-  const baseUtci = liveWeather?.apparentTempC ?? (isSevere ? 42.0 : isHigh ? 38.0 : 34.0);
-  const baseWbgt = liveWeather?.wbgtIndex ?? (isSevere ? 30.8 : isHigh ? 28.5 : 25.8);
-  const baseHvi = liveWeather?.hviScore ?? (isSevere ? 0.72 : isHigh ? 0.58 : 0.42);
-  const baseHumidity = liveWeather?.humidity ?? 72;
+  // Anchor to live telemetry if available, otherwise sensible seasonal baseline
+  const baseTemp = liveWeather?.temperatureC ?? 29.5;
+  const baseUtci = liveWeather?.apparentTempC ?? 35.2;
+  const baseWbgt = liveWeather?.wbgtIndex ?? 26.8;
+  const baseHvi = liveWeather?.hviScore ?? 0.45;
+  const baseHumidity = liveWeather?.humidity ?? 74;
 
   const isGurgaon = region.id === 'gurgaon' || region.id === 'delhi-gurgaon' || region.id === 'sohna-gurgaon';
 
@@ -220,51 +218,56 @@ export function generateWardsForRegion(region: MunicipalRegion, liveWeather?: Li
     { name: 'Subhash Chowk Labor Colony', zone: 'Zone 14 - Gurgaon Sohna Road', density: 'HIGH' as const, pop: 53500, paged: 79, hviOffset: 0.09 },
   ];
 
-  const isGuwahati = region.id === 'guwahati' || region.name.toLowerCase().includes('guwahati');
+  interface WardTemplate {
+    name: string;
+    zone: string;
+    density: 'HIGH' | 'MODERATE' | 'LOW';
+    pop: number;
+    paged: number;
+    hviOffset: number;
+  }
 
-  const guwahatiTemplates = [
-    { name: 'Fancy Bazar Wholesale & Commercial', zone: 'Zone 1 - Guwahati Riverfront Market', density: 'HIGH' as const, pop: 74200, paged: 86, hviOffset: 0.12 },
-    { name: 'Paltan Bazaar & Railway Terminus', zone: 'Zone 1 - Guwahati Central Transit', density: 'HIGH' as const, pop: 78500, paged: 89, hviOffset: 0.14 },
-    { name: 'Panbazar & Cotton University Hub', zone: 'Zone 2 - Guwahati Institutional', density: 'MODERATE' as const, pop: 48900, paged: 65, hviOffset: -0.05 },
-    { name: 'Dispur Secretariat & Capital Complex', zone: 'Zone 2 - Dispur Capital Center', density: 'MODERATE' as const, pop: 54100, paged: 58, hviOffset: -0.08 },
-    { name: 'Ganeshguri Commercial Junction', zone: 'Zone 3 - Guwahati South East', density: 'HIGH' as const, pop: 69400, paged: 84, hviOffset: 0.10 },
-    { name: 'Bhangagarh & GMCH Medical Corridor', zone: 'Zone 3 - Guwahati Central Health', density: 'HIGH' as const, pop: 63200, paged: 82, hviOffset: 0.08 },
-    { name: 'Chandmari & Refinery Colony Sector', zone: 'Zone 4 - Guwahati East Industrial', density: 'HIGH' as const, pop: 76800, paged: 91, hviOffset: 0.15 },
-    { name: 'Noonmati Industrial Oil Depot', zone: 'Zone 4 - Guwahati Industrial Belt', density: 'HIGH' as const, pop: 71500, paged: 88, hviOffset: 0.13 },
-    { name: 'Maligaon & NFR Railway Headquarters', zone: 'Zone 5 - Guwahati West Terminal', density: 'HIGH' as const, pop: 66800, paged: 80, hviOffset: 0.07 },
-    { name: 'Jalukbari & Gauhati University Sector', zone: 'Zone 5 - Guwahati West Gateway', density: 'LOW' as const, pop: 38500, paged: 45, hviOffset: -0.22 },
-    { name: 'Beltola & Survey Market Corridor', zone: 'Zone 6 - Guwahati South', density: 'MODERATE' as const, pop: 53800, paged: 72, hviOffset: 0.02 },
-    { name: 'Khanapara & Six Mile Inter-State Gate', zone: 'Zone 6 - Guwahati Border Hub', density: 'HIGH' as const, pop: 59700, paged: 78, hviOffset: 0.06 },
-    { name: 'Uzan Bazar & Brahmaputra Riverfront', zone: 'Zone 7 - Guwahati North Riverfront', density: 'LOW' as const, pop: 35200, paged: 40, hviOffset: -0.28 },
-    { name: 'Kamakhya Nilachal Hill Heritage Zone', zone: 'Zone 7 - Guwahati Pilgrimage Hill', density: 'LOW' as const, pop: 30100, paged: 36, hviOffset: -0.32 },
-    { name: 'Zoo Road & Geetanagar Urban Hub', zone: 'Zone 8 - Guwahati Central Corridor', density: 'MODERATE' as const, pop: 51800, paged: 68, hviOffset: -0.02 },
-    { name: 'Borjhar & LGBI Airport Aerocity', zone: 'Zone 8 - Guwahati Airport Zone', density: 'MODERATE' as const, pop: 42900, paged: 55, hviOffset: -0.09 },
+  const isDarjeeling = region.id.includes('darjeeling') || region.name.toLowerCase().includes('darjeeling');
+
+  const darjeelingTemplates: WardTemplate[] = [
+    { name: 'Chowrasta Mall & Heritage Ridge', zone: 'Zone 1 - Darjeeling Central Heritage', density: 'MODERATE', pop: 28400, paged: 58, hviOffset: -0.22 },
+    { name: 'Chauk Bazaar & Lower Hill Market', zone: 'Zone 1 - Commercial Transit Basin', density: 'HIGH', pop: 44200, paged: 79, hviOffset: 0.05 },
+    { name: 'Darjeeling Himalayan Railway (DHR) Terminus', zone: 'Zone 2 - Hill Railway Heritage Sector', density: 'HIGH', pop: 38600, paged: 74, hviOffset: 0.02 },
+    { name: 'Happy Valley Tea Estate & Lebong Spur', zone: 'Zone 2 - North Tea Valley', density: 'LOW', pop: 21500, paged: 32, hviOffset: -0.32 },
+    { name: 'Batasia Loop & Ghoom Monastery Sector', zone: 'Zone 3 - Ghoom Alpine Summit', density: 'LOW', pop: 26800, paged: 40, hviOffset: -0.35 },
+    { name: 'Tiger Hill Eco-Observatory & Senchal Foothills', zone: 'Zone 3 - Senchal Wildlife Sanctuary', density: 'LOW', pop: 14200, paged: 22, hviOffset: -0.42 },
+    { name: 'Padmaja Naidu Zoo & HMI Birch Hill', zone: 'Zone 4 - Western Alpine Reserve', density: 'LOW', pop: 18900, paged: 35, hviOffset: -0.28 },
+    { name: 'Singamari & North Point St. Joseph', zone: 'Zone 4 - North Point Institutional', density: 'MODERATE', pop: 29800, paged: 54, hviOffset: -0.12 },
+    { name: 'Jorebungalow & Sukhiapokhri Pass', zone: 'Zone 5 - South West Himalayan Pass', density: 'MODERATE', pop: 27500, paged: 56, hviOffset: -0.10 },
+    { name: 'Tukvar Tea Valley & Rohini Corridor', zone: 'Zone 5 - Eastern Mountain Slopes', density: 'LOW', pop: 22100, paged: 28, hviOffset: -0.34 },
+    { name: 'Sonada Hill Station & Gorabari Ridge', zone: 'Zone 6 - NH-55 Mountain Corridor', density: 'MODERATE', pop: 24600, paged: 48, hviOffset: -0.18 },
+    { name: 'Kurseong Sub-Divisional Foothills', zone: 'Zone 6 - South Darjeeling Ridge', density: 'MODERATE', pop: 32400, paged: 60, hviOffset: -0.08 },
   ];
 
-  const defaultTemplates = [
-    { name: `${cityName} Central Plaza & Core`, zone: `Zone 1 - ${cityName} Center`, density: 'HIGH' as const, pop: 58500, paged: 85, hviOffset: 0.06 },
-    { name: `${cityName} North Ridge Sector`, zone: `Zone 1 - ${cityName} North`, density: 'LOW' as const, pop: 32100, paged: 45, hviOffset: -0.25 },
-    { name: `${cityName} Commercial Market Hub`, zone: `Zone 2 - ${cityName} Commercial`, density: 'HIGH' as const, pop: 64200, paged: 88, hviOffset: 0.10 },
-    { name: `${cityName} Old City Heritage Corridor`, zone: `Zone 2 - ${cityName} Old City`, density: 'HIGH' as const, pop: 52000, paged: 78, hviOffset: 0.03 },
-    { name: `${cityName} Green Belt Canopy Zone`, zone: `Zone 3 - ${cityName} Green Belt`, density: 'LOW' as const, pop: 28400, paged: 35, hviOffset: -0.32 },
-    { name: `${cityName} South Metropolitan District`, zone: `Zone 3 - ${cityName} South`, density: 'MODERATE' as const, pop: 41000, paged: 60, hviOffset: -0.08 },
-    { name: `${cityName} East Industrial Zone`, zone: `Zone 4 - ${cityName} Industrial`, density: 'HIGH' as const, pop: 76500, paged: 90, hviOffset: 0.12 },
-    { name: `${cityName} Transit Interchange & Depot`, zone: `Zone 4 - ${cityName} Transit`, density: 'HIGH' as const, pop: 61200, paged: 82, hviOffset: 0.07 },
-    { name: `${cityName} Expressway Construction Labor Zone`, zone: `Zone 5 - ${cityName} West`, density: 'HIGH' as const, pop: 54900, paged: 76, hviOffset: 0.05 },
-    { name: `${cityName} Sector 10 Residential`, zone: `Zone 5 - ${cityName} North West`, density: 'MODERATE' as const, pop: 39800, paged: 52, hviOffset: -0.15 },
-    { name: `${cityName} High Density Slum Settlement`, zone: `Zone 6 - ${cityName} East Slums`, density: 'HIGH' as const, pop: 82400, paged: 89, hviOffset: 0.14 },
-    { name: `${cityName} University & Tech Park`, zone: `Zone 6 - ${cityName} Tech Hub`, density: 'MODERATE' as const, pop: 44500, paged: 65, hviOffset: -0.05 },
-    { name: `${cityName} Airport Cargo Corridor`, zone: `Zone 7 - ${cityName} Airport Area`, density: 'MODERATE' as const, pop: 46200, paged: 72, hviOffset: 0.01 },
-    { name: `${cityName} Riverfront / Waterfront Zone`, zone: `Zone 7 - ${cityName} Riverfront`, density: 'MODERATE' as const, pop: 38500, paged: 55, hviOffset: -0.12 },
-    { name: `${cityName} Suburban Outer Colony`, zone: `Zone 8 - ${cityName} Suburbs`, density: 'MODERATE' as const, pop: 49000, paged: 58, hviOffset: -0.09 },
-    { name: `${cityName} Heavy Factory & Foundry Complex`, zone: `Zone 8 - ${cityName} Heavy Industry`, density: 'HIGH' as const, pop: 88500, paged: 94, hviOffset: 0.15 },
-    { name: `${cityName} Railway Junction Terminus`, zone: `Zone 9 - ${cityName} Junction`, density: 'HIGH' as const, pop: 59200, paged: 80, hviOffset: 0.04 },
-    { name: `${cityName} Botanical Park & Ridge`, zone: `Zone 9 - ${cityName} Ridge`, density: 'LOW' as const, pop: 26000, paged: 30, hviOffset: -0.35 },
-    { name: `${cityName} Ring Road Commercial Corridor`, zone: `Zone 10 - ${cityName} Ring Road`, density: 'HIGH' as const, pop: 53100, paged: 74, hviOffset: 0.02 },
-    { name: `${cityName} Outer Boundary Settlement`, zone: `Zone 10 - ${cityName} Outer Boundary`, density: 'HIGH' as const, pop: 67200, paged: 81, hviOffset: 0.08 },
+  const defaultTemplates: WardTemplate[] = [
+    { name: `${cityName} Central Plaza & Core`, zone: `Zone 1 - ${cityName} Center`, density: 'HIGH', pop: 58500, paged: 85, hviOffset: 0.06 },
+    { name: `${cityName} North Ridge Sector`, zone: `Zone 1 - ${cityName} North`, density: 'LOW', pop: 32100, paged: 45, hviOffset: -0.25 },
+    { name: `${cityName} Commercial Market Hub`, zone: `Zone 2 - ${cityName} Commercial`, density: 'HIGH', pop: 64200, paged: 88, hviOffset: 0.10 },
+    { name: `${cityName} Old City Heritage Corridor`, zone: `Zone 2 - ${cityName} Old City`, density: 'HIGH', pop: 52000, paged: 78, hviOffset: 0.03 },
+    { name: `${cityName} Green Belt Canopy Zone`, zone: `Zone 3 - ${cityName} Green Belt`, density: 'LOW', pop: 28400, paged: 35, hviOffset: -0.32 },
+    { name: `${cityName} South Metropolitan District`, zone: `Zone 3 - ${cityName} South`, density: 'MODERATE', pop: 41000, paged: 60, hviOffset: -0.08 },
+    { name: `${cityName} East Industrial Zone`, zone: `Zone 4 - ${cityName} Industrial`, density: 'HIGH', pop: 76500, paged: 90, hviOffset: 0.12 },
+    { name: `${cityName} Transit Interchange & Depot`, zone: `Zone 4 - ${cityName} Transit`, density: 'HIGH', pop: 61200, paged: 82, hviOffset: 0.07 },
+    { name: `${cityName} Expressway Construction Labor Zone`, zone: `Zone 5 - ${cityName} West`, density: 'HIGH', pop: 54900, paged: 76, hviOffset: 0.05 },
+    { name: `${cityName} Sector 10 Residential`, zone: `Zone 5 - ${cityName} North West`, density: 'MODERATE', pop: 39800, paged: 52, hviOffset: -0.15 },
+    { name: `${cityName} High Density Slum Settlement`, zone: `Zone 6 - ${cityName} East Slums`, density: 'HIGH', pop: 82400, paged: 89, hviOffset: 0.14 },
+    { name: `${cityName} University & Tech Park`, zone: `Zone 6 - ${cityName} Tech Hub`, density: 'MODERATE', pop: 44500, paged: 65, hviOffset: -0.05 },
+    { name: `${cityName} Airport Cargo Corridor`, zone: `Zone 7 - ${cityName} Airport Area`, density: 'MODERATE', pop: 46200, paged: 72, hviOffset: 0.01 },
+    { name: `${cityName} Riverfront / Waterfront Zone`, zone: `Zone 7 - ${cityName} Riverfront`, density: 'MODERATE', pop: 38500, paged: 55, hviOffset: -0.12 },
+    { name: `${cityName} Suburban Outer Colony`, zone: `Zone 8 - ${cityName} Suburbs`, density: 'MODERATE', pop: 49000, paged: 58, hviOffset: -0.09 },
+    { name: `${cityName} Heavy Factory & Foundry Complex`, zone: `Zone 8 - ${cityName} Heavy Industry`, density: 'HIGH', pop: 88500, paged: 94, hviOffset: 0.15 },
+    { name: `${cityName} Railway Junction Terminus`, zone: `Zone 9 - ${cityName} Junction`, density: 'HIGH', pop: 59200, paged: 80, hviOffset: 0.04 },
+    { name: `${cityName} Botanical Park & Ridge`, zone: `Zone 9 - ${cityName} Ridge`, density: 'LOW', pop: 26000, paged: 30, hviOffset: -0.35 },
+    { name: `${cityName} Ring Road Commercial Corridor`, zone: `Zone 10 - ${cityName} Ring Road`, density: 'HIGH', pop: 53100, paged: 74, hviOffset: 0.02 },
+    { name: `${cityName} Outer Boundary Settlement`, zone: `Zone 10 - ${cityName} Outer Boundary`, density: 'HIGH', pop: 67200, paged: 81, hviOffset: 0.08 },
   ];
 
-  const wardTemplates = isGurgaon ? gurgaonTemplates : isGuwahati ? guwahatiTemplates : defaultTemplates;
+  const wardTemplates: WardTemplate[] = isGurgaon ? gurgaonTemplates : isDarjeeling ? darjeelingTemplates : defaultTemplates;
 
   return wardTemplates.map((template, idx) => {
     // Generate centroid distributed around center coordinate
@@ -498,39 +501,73 @@ export function generateResourcesForRegion(region: MunicipalRegion, wards: Ward[
  */
 export function generateAlertsForRegion(region: MunicipalRegion, wards: Ward[]): HeatAlert[] {
   const severeWards = wards.filter((w) => w.currentMetrics.riskLevel === 'SEVERE');
-  const targetWards = severeWards.length > 0 ? severeWards : wards.slice(0, 3);
+  const highWards = wards.filter((w) => w.currentMetrics.riskLevel === 'HIGH');
+  const targetWards = severeWards.length > 0 ? severeWards : highWards.length > 0 ? highWards : wards.slice(0, 2);
 
-  return targetWards.slice(0, 4).map((ward, i) => {
+  return targetWards.slice(0, 3).map((ward, i) => {
+    const risk = ward.currentMetrics.riskLevel;
+    const isRed = risk === 'SEVERE';
+    const isHigh = risk === 'HIGH';
+
     return {
       id: `ALT-${region.id.slice(0, 3).toUpperCase()}-${String(i + 1).padStart(3, '0')}`,
       wardId: ward.id,
       wardName: ward.name,
       zone: ward.zone,
-      severity: ward.currentMetrics.riskLevel === 'SEVERE' ? 'SEVERE' : 'HIGH',
-      title: `${ward.currentMetrics.riskLevel === 'SEVERE' ? 'Extreme Heatwave Red Alert' : 'High Thermal Advisory'}: UTCI ${ward.currentMetrics.utci}°C`,
-      consecutiveHours: 4 + i * 2,
+      severity: risk,
+      title: isRed
+        ? `Extreme Heatwave Red Alert: UTCI ${ward.currentMetrics.utci}°C`
+        : isHigh
+        ? `High Thermal Advisory: UTCI ${ward.currentMetrics.utci}°C`
+        : `Seasonal Thermal & Hydration Advisory: UTCI ${ward.currentMetrics.utci}°C`,
+      consecutiveHours: 3 + i,
       utci: ward.currentMetrics.utci,
       wbgt: ward.currentMetrics.wbgt,
       tempC: ward.currentMetrics.tempC,
-      description: `UTCI thermal stress reached ${ward.currentMetrics.utci}°C in ${ward.name}. Elevated heat stroke vulnerability for ${ward.vulnerability.outdoorWorkersEstimate.toLocaleString()} outdoor workers & elderly residents.`,
+      description: isRed
+        ? `Extreme thermal stress threshold exceeded (UTCI ${ward.currentMetrics.utci}°C) in ${ward.name}. Immediate hydration, cooling centers and outdoor labor suspension required.`
+        : isHigh
+        ? `High thermal strain observed in ${ward.name}. Hydration booths and cooling respite points active.`
+        : `Seasonal thermal monitoring across ${ward.name}. Ambient conditions are within manageable thresholds (temp ${ward.currentMetrics.tempC}°C).`,
       recommendedActions: ward.recommendedActions,
       timestamp: new Date(Date.now() - (i + 1) * 20 * 60 * 1000).toISOString(),
-      status: i === 0 ? 'ACTIVE' : i === 1 ? 'ACTIVE' : i === 2 ? 'ACKNOWLEDGED' : 'RESOLVED',
-      channels: ['TELEGRAM', 'SMS', 'WEB_PUSH', 'MUNICIPAL_BROADCAST'],
+      status: 'ACTIVE' as const,
+      channels: ['TELEGRAM', 'SMS', 'MUNICIPAL_BROADCAST'] as const,
     };
   });
 }
 
 /**
  * Generates 7-day forecast steps (+0h to +168h) for the region's wards
+ * Uses genuine Open-Meteo hourly satellite forecasts when available
  */
-export function generateForecastForRegion(region: MunicipalRegion, wards: Ward[]): ForecastStep[] {
+export function generateForecastForRegion(
+  region: MunicipalRegion,
+  wards: Ward[],
+  liveWeather?: LiveWeatherData
+): ForecastStep[] {
   const FORECAST_OFFSETS = [0, 6, 12, 24, 48, 72, 96, 120, 144, 168];
   const baseTime = new Date();
+  const hourly = liveWeather?.hourlyForecast;
+  const baseLiveTemp = liveWeather?.temperatureC ?? 30.0;
+  const baseLiveUtci = liveWeather?.apparentTempC ?? 36.0;
+  const baseLiveHumidity = liveWeather?.humidity ?? 70;
 
   return FORECAST_OFFSETS.map((offset) => {
     const stepTime = new Date(baseTime.getTime() + offset * 60 * 60 * 1000);
-    // Offset 0 is Live/Current; later offsets follow diurnal solar radiation
+
+    // Extract real telemetry at offset if available from satellite feed
+    const hasRealHourly =
+      hourly &&
+      Array.isArray(hourly.temperature_2m) &&
+      hourly.temperature_2m.length > offset &&
+      typeof hourly.temperature_2m[offset] === 'number';
+
+    const realHourTemp = hasRealHourly ? hourly.temperature_2m[offset] : null;
+    const realHourUtci = hasRealHourly && hourly.apparent_temperature ? hourly.apparent_temperature[offset] : null;
+    const realHourHumidity = hasRealHourly && hourly.relative_humidity_2m ? hourly.relative_humidity_2m[offset] : null;
+
+    // Fallback mathematical curve only if satellite hourly array is missing
     const timeFactor = offset === 0 ? 0 : Math.sin((offset / 24) * Math.PI * 2);
     const tempDelta = timeFactor * 3.5;
 
@@ -542,10 +579,23 @@ export function generateForecastForRegion(region: MunicipalRegion, wards: Ward[]
     let totalPeopleAtRisk = 0;
 
     wards.forEach((ward) => {
-      const utci = Number(Math.max(18, Math.min(55, ward.currentMetrics.utci + tempDelta)).toFixed(1));
-      const wbgt = Number(Math.max(14, Math.min(38, ward.currentMetrics.wbgt + tempDelta * 0.6)).toFixed(1));
-      const tempC = Number((ward.currentMetrics.tempC + tempDelta * 0.7).toFixed(1));
-      const humidity = Math.max(15, Math.min(98, Math.round(ward.currentMetrics.humidity - tempDelta * 2)));
+      let tempC: number;
+      let utci: number;
+      let wbgt: number;
+      let humidity: number;
+
+      if (hasRealHourly && realHourTemp !== null && realHourUtci !== null && realHourHumidity !== null) {
+        const uhiOffset = ward.currentMetrics.tempC - baseLiveTemp;
+        tempC = Number((realHourTemp + uhiOffset).toFixed(1));
+        utci = Number((realHourUtci + uhiOffset * 1.1).toFixed(1));
+        wbgt = Number((tempC * 0.74).toFixed(1));
+        humidity = Math.max(15, Math.min(98, Math.round(realHourHumidity)));
+      } else {
+        utci = Number(Math.max(18, Math.min(55, ward.currentMetrics.utci + tempDelta)).toFixed(1));
+        wbgt = Number(Math.max(14, Math.min(38, ward.currentMetrics.wbgt + tempDelta * 0.6)).toFixed(1));
+        tempC = Number((ward.currentMetrics.tempC + tempDelta * 0.7).toFixed(1));
+        humidity = Math.max(15, Math.min(98, Math.round(ward.currentMetrics.humidity - tempDelta * 2)));
+      }
 
       const riskLevel = calculateRiskLevel(utci, wbgt, ward.vulnerability.hvi);
 
@@ -593,11 +643,17 @@ export function generateForecastForRegion(region: MunicipalRegion, wards: Ward[]
 }
 
 /**
- * Generates 48-hour time series metrics for charts based on region's wards
+ * Generates 48-hour time series metrics for charts based on region's wards and live satellite telemetry
  */
-export function generateTimeSeriesForRegion(region: MunicipalRegion, wards: Ward[]): ForecastTimeSeriesPoint[] {
+export function generateTimeSeriesForRegion(
+  region: MunicipalRegion,
+  wards: Ward[],
+  liveWeather?: LiveWeatherData
+): ForecastTimeSeriesPoint[] {
   const baseTime = new Date();
   const hours = Array.from({ length: 48 }, (_, i) => i * 3);
+  const hourly = liveWeather?.hourlyForecast;
+  const baseLiveTemp = liveWeather?.temperatureC ?? 30.0;
 
   const avgBaseUtci = wards.reduce((acc, w) => acc + w.currentMetrics.utci, 0) / (wards.length || 1);
   const avgBaseWbgt = wards.reduce((acc, w) => acc + w.currentMetrics.wbgt, 0) / (wards.length || 1);
@@ -605,16 +661,33 @@ export function generateTimeSeriesForRegion(region: MunicipalRegion, wards: Ward
 
   return hours.map((h) => {
     const stepTime = new Date(baseTime.getTime() + h * 60 * 60 * 1000);
-    const diurnal = Math.sin(((h % 24) / 24) * Math.PI * 2);
-    const avgUtci = avgBaseUtci + diurnal * 5;
-    const avgWbgt = avgBaseWbgt + diurnal * 3;
-    const avgTemp = avgBaseTemp + diurnal * 4;
+    const hasRealHourly =
+      hourly &&
+      Array.isArray(hourly.temperature_2m) &&
+      hourly.temperature_2m.length > h &&
+      typeof hourly.temperature_2m[h] === 'number';
+
+    let avgTemp: number;
+    let avgUtci: number;
+    let avgWbgt: number;
+
+    if (hasRealHourly && hourly.apparent_temperature) {
+      avgTemp = Number(hourly.temperature_2m[h].toFixed(1));
+      avgUtci = Number((hourly.apparent_temperature[h] ?? avgTemp + 5).toFixed(1));
+      avgWbgt = Number((avgTemp * 0.74).toFixed(1));
+    } else {
+      const diurnal = Math.sin(((h % 24) / 24) * Math.PI * 2);
+      avgUtci = Number((avgBaseUtci + diurnal * 5).toFixed(1));
+      avgWbgt = Number((avgBaseWbgt + diurnal * 3).toFixed(1));
+      avgTemp = Number((avgBaseTemp + diurnal * 4).toFixed(1));
+    }
 
     let severeCount = 0;
     let highCount = 0;
 
     wards.forEach((w) => {
-      const u = w.currentMetrics.utci + diurnal * 5;
+      const uhi = w.currentMetrics.tempC - baseLiveTemp;
+      const u = hasRealHourly ? avgUtci + uhi * 1.1 : w.currentMetrics.utci + (avgUtci - avgBaseUtci);
       if (u >= 46) severeCount++;
       else if (u >= 41) highCount++;
     });
@@ -623,9 +696,9 @@ export function generateTimeSeriesForRegion(region: MunicipalRegion, wards: Ward
       hourOffset: h,
       timestamp: stepTime.toISOString(),
       timeLabel: stepTime.toLocaleString('en-IN', { weekday: 'short', hour: '2-digit' }),
-      avgUtci: Number(avgUtci.toFixed(1)),
-      avgWbgt: Number(avgWbgt.toFixed(1)),
-      avgTemp: Number(avgTemp.toFixed(1)),
+      avgUtci,
+      avgWbgt,
+      avgTemp,
       severeWardsCount: severeCount,
       highWardsCount: highCount,
     };
