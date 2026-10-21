@@ -17,6 +17,8 @@ export interface ThermalMetrics {
   humidity: number; // %
   heatIndex: number; // °C
   riskLevel: RiskLevel;
+  isActive?: boolean; // True when risk is SEVERE, HIGH, or MODERATE; False when LOW
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface Ward {

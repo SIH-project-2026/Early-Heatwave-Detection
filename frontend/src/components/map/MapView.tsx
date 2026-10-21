@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { useHeatwave } from '../../context/HeatwaveContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { wardService } from '../../services/wardService';
 import { wardToLocationItem, resourceToLocationItem } from '../../services/locationService';
 import type { Ward } from '../../types/ward';
 import type { LocationItem } from '../../types/location';
+import type { RiskLevel } from '../../types/risk';
 import { RiskLegend } from './RiskLegend';
 import { MapControls } from './MapControls';
 import { getRiskConfig } from '../../utils/riskUtils';
@@ -24,6 +26,7 @@ export const MapView: React.FC<MapViewProps> = ({
   height = 'h-[550px]',
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
+  const { t } = useLanguage();
   const mapRef = useRef<maplibregl.Map | null>(null);
   const wardMarkersMapRef = useRef<Map<string, { marker: maplibregl.Marker; innerEl: HTMLDivElement }>>(new Map());
   const resourceMarkersMapRef = useRef<Map<string, { marker: maplibregl.Marker; innerEl: HTMLDivElement }>>(new Map());
@@ -53,6 +56,32 @@ export const MapView: React.FC<MapViewProps> = ({
   const showCoverageOutlineRef = useRef(showCoverageOutline);
   showCoverageOutlineRef.current = showCoverageOutline;
   const isInitialStyleMount = useRef(true);
+
+  // Weather-responsive dominant regional risk level and color matching temperature criteria
+  const regionalRiskLevel: RiskLevel = useMemo(() => {
+    if (!wards || wards.length === 0) return activeRegion?.riskStatus || 'LOW';
+    if (wards.some((w) => w.currentMetrics?.riskLevel === 'SEVERE')) return 'SEVERE';
+    if (wards.some((w) => w.currentMetrics?.riskLevel === 'HIGH')) return 'HIGH';
+    if (wards.some((w) => w.currentMetrics?.riskLevel === 'MODERATE')) return 'MODERATE';
+    return 'LOW';
+  }, [wards, activeRegion]);
+
+  const regionalRiskColor = useMemo(() => {
+    switch (regionalRiskLevel) {
+      case 'SEVERE':
+        return '#EF4444'; // Red (>46°C)
+      case 'HIGH':
+        return '#F97316'; // Orange / Amber (41-46°C)
+      case 'MODERATE':
+        return '#F59E0B'; // Yellow (36-41°C)
+      case 'LOW':
+      default:
+        return '#10B981'; // Emerald Green (<36°C)
+    }
+  }, [regionalRiskLevel]);
+
+  const regionalRiskColorRef = useRef(regionalRiskColor);
+  regionalRiskColorRef.current = regionalRiskColor;
 
   // Fullscreen Command Center Map State & Ref
   const mapWrapperRef = useRef<HTMLDivElement>(null);
@@ -286,11 +315,11 @@ export const MapView: React.FC<MapViewProps> = ({
       if (onSelectLocation) onSelectLocation(locItem);
 
       if (mapRef.current) {
-        mapRef.current.flyTo({
+        const currentZoom = mapRef.current.getZoom();
+        mapRef.current.easeTo({
           center: locItem.coordinates,
-          zoom: 13.5,
-          duration: 1200,
-          essential: true,
+          zoom: currentZoom < 11 ? 11.5 : currentZoom,
+          duration: 600,
         });
       }
     },
@@ -310,9 +339,16 @@ export const MapView: React.FC<MapViewProps> = ({
       const pathD =
         points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + ' Z';
 
-      if (svgPolygonRef.current) svgPolygonRef.current.setAttribute('d', pathD);
+      const color = regionalRiskColorRef.current;
+      if (svgPolygonRef.current) {
+        svgPolygonRef.current.setAttribute('d', pathD);
+        svgPolygonRef.current.setAttribute('fill', color);
+      }
       if (svgPathWhiteRef.current) svgPathWhiteRef.current.setAttribute('d', pathD);
-      if (svgPathRedRef.current) svgPathRedRef.current.setAttribute('d', pathD);
+      if (svgPathRedRef.current) {
+        svgPathRedRef.current.setAttribute('d', pathD);
+        svgPathRedRef.current.setAttribute('stroke', color);
+      }
     } catch {
       // Map instance may still be configuring projection matrix
     }
@@ -330,6 +366,7 @@ export const MapView: React.FC<MapViewProps> = ({
       if (!map.getStyle()) return;
 
       const visibilityVal = visible ? 'visible' : 'none';
+      const activeColor = regionalRiskColorRef.current;
 
       if (!map.getSource('region-coverage-source')) {
         map.addSource('region-coverage-source', {
@@ -354,14 +391,15 @@ export const MapView: React.FC<MapViewProps> = ({
             source: 'region-coverage-source',
             layout: { visibility: visibilityVal },
             paint: {
-              'fill-color': '#ef4444',
-              'fill-opacity': 0.05,
+              'fill-color': activeColor,
+              'fill-opacity': 0.07,
             },
           },
           beforeFillId
         );
       } else {
         map.setLayoutProperty('coverage-fill', 'visibility', visibilityVal);
+        map.setPaintProperty('coverage-fill', 'fill-color', activeColor);
       }
 
       // 2. Coverage perimeter ambient glow
@@ -372,7 +410,7 @@ export const MapView: React.FC<MapViewProps> = ({
           source: 'region-coverage-source',
           layout: { visibility: visibilityVal },
           paint: {
-            'line-color': '#ef4444',
+            'line-color': activeColor,
             'line-width': 10,
             'line-blur': 5,
             'line-opacity': 0.45,
@@ -380,6 +418,7 @@ export const MapView: React.FC<MapViewProps> = ({
         });
       } else {
         map.setLayoutProperty('coverage-glow', 'visibility', visibilityVal);
+        map.setPaintProperty('coverage-glow', 'line-color', activeColor);
       }
 
       // 3. Coverage perimeter outer contrast casing (crisp white casing)
@@ -399,7 +438,7 @@ export const MapView: React.FC<MapViewProps> = ({
         map.setLayoutProperty('coverage-outer-casing', 'visibility', visibilityVal);
       }
 
-      // 4. Coverage perimeter primary red dashed boundary line
+      // 4. Coverage perimeter primary weather-responsive dashed boundary line
       if (!map.getLayer('coverage-boundary-line')) {
         map.addLayer({
           id: 'coverage-boundary-line',
@@ -407,7 +446,7 @@ export const MapView: React.FC<MapViewProps> = ({
           source: 'region-coverage-source',
           layout: { visibility: visibilityVal },
           paint: {
-            'line-color': '#ef4444',
+            'line-color': activeColor,
             'line-width': 3.5,
             'line-dasharray': [4, 2],
             'line-opacity': 1,
@@ -415,11 +454,35 @@ export const MapView: React.FC<MapViewProps> = ({
         });
       } else {
         map.setLayoutProperty('coverage-boundary-line', 'visibility', visibilityVal);
+        map.setPaintProperty('coverage-boundary-line', 'line-color', activeColor);
       }
     } catch (err) {
       console.warn('[Coverage Layers Error - will retry on idle/styledata]:', err);
     }
   };
+
+  // Synchronize coverage layer paint colors when weather/risk level changes
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+    try {
+      if (mapRef.current.getLayer('coverage-fill')) {
+        mapRef.current.setPaintProperty('coverage-fill', 'fill-color', regionalRiskColor);
+      }
+      if (mapRef.current.getLayer('coverage-glow')) {
+        mapRef.current.setPaintProperty('coverage-glow', 'line-color', regionalRiskColor);
+      }
+      if (mapRef.current.getLayer('coverage-boundary-line')) {
+        mapRef.current.setPaintProperty('coverage-boundary-line', 'line-color', regionalRiskColor);
+      }
+    } catch {}
+
+    if (svgPolygonRef.current) {
+      svgPolygonRef.current.setAttribute('fill', regionalRiskColor);
+    }
+    if (svgPathRedRef.current) {
+      svgPathRedRef.current.setAttribute('stroke', regionalRiskColor);
+    }
+  }, [regionalRiskColor, mapLoaded]);
 
   // Helper to ensure GeoJSON ward layers exist on the map (persists across style switches)
   const ensureWardLayers = (map: maplibregl.Map, geojson: any, forceSetData = false) => {
@@ -440,10 +503,17 @@ export const MapView: React.FC<MapViewProps> = ({
       }
 
       if (!map.getLayer('wards-fill')) {
+        const hasActive = wards.some((w) => w.currentMetrics?.riskLevel !== 'LOW');
+        const initialFilter =
+          riskFilter === 'ALL'
+            ? (hasActive ? ['!=', ['get', 'risk_level'], 'LOW'] : ['has', 'risk_level'])
+            : ['==', ['get', 'risk_level'], riskFilter];
+
         map.addLayer({
           id: 'wards-fill',
           type: 'fill',
           source: 'wards-source',
+          filter: initialFilter as any,
           paint: {
             'fill-color': [
               'match',
@@ -498,9 +568,16 @@ export const MapView: React.FC<MapViewProps> = ({
           .setHTML(
             `<div class="p-1 font-sans text-xs max-w-full space-y-1">
               <div class="font-bold text-white text-xs leading-tight">${props.ward_name}</div>
-              <div class="flex items-center space-x-2">
+              <div class="flex items-center space-x-1.5 flex-wrap">
                 <span class="px-2 py-0.5 rounded font-bold text-[10px]" style="background:${config.bgColor}; color:${config.color}; border:1px solid ${config.color}">
                   ${risk} RISK
+                </span>
+                <span class="px-1.5 py-0.5 rounded font-mono font-bold text-[9px] ${
+                  risk !== 'LOW'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                }">
+                  ${risk !== 'LOW' ? 'ACTIVE' : 'INACTIVE'}
                 </span>
                 <span class="text-slate-300 font-mono text-[11px]">UTCI: ${props.utci}°C</span>
               </div>
@@ -576,8 +653,8 @@ export const MapView: React.FC<MapViewProps> = ({
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: getStyleSpec(mapStyle),
-      center: selectedLocation?.coordinates || activeRegion?.coordinates || [77.110, 28.540],
-      zoom: selectedLocation ? 13.5 : (activeRegion?.zoom || 11),
+      center: activeRegion?.coordinates || [77.110, 28.540],
+      zoom: activeRegion?.zoom || 11,
       pitch: 0,
     });
 
@@ -633,17 +710,14 @@ export const MapView: React.FC<MapViewProps> = ({
       setMapLoaded(true);
 
       map.resize();
-      if (selectedLocation) {
-        map.flyTo({
-          center: selectedLocation.coordinates,
-          zoom: 13.5,
-          duration: 600,
-          essential: true,
-        });
+      // Maintain regional overview on load - no auto-zoom into single ward/street
+      if (activeRegion?.coordinates) {
+        map.setCenter(activeRegion.coordinates);
+        map.setZoom(activeRegion.zoom || 11);
       } else {
         const bounds = getBounds();
         if (bounds) {
-          map.fitBounds(bounds, { padding: 40, maxZoom: 13.5, animate: false });
+          map.fitBounds(bounds, { padding: 40, maxZoom: activeRegion?.zoom || 11, animate: false });
         }
       }
 
@@ -682,7 +756,7 @@ export const MapView: React.FC<MapViewProps> = ({
     };
   }, []);
 
-  // Sync selected ward polygon highlight when selection changes
+  // Sync selected ward polygon highlight and active risk filter when selection/filter changes
   useEffect(() => {
     if (!mapRef.current) return;
     const activeWardId = selectedLocation?.id || selectedWard?.id || '';
@@ -690,7 +764,20 @@ export const MapView: React.FC<MapViewProps> = ({
       mapRef.current.setFilter('wards-selected-line', ['==', 'ward_id', activeWardId]);
       mapRef.current.setFilter('wards-selected-fill', ['==', 'ward_id', activeWardId]);
     }
-  }, [selectedLocation, selectedWard, mapLoaded]);
+
+    if (mapRef.current.getLayer('wards-fill')) {
+      const hasActive = wards.some((w) => w.currentMetrics?.riskLevel !== 'LOW');
+      if (riskFilter === 'ALL') {
+        // By default, show active heatwave wards (Severe, High, Moderate). Low risk wards are hidden unless explicitly selected.
+        mapRef.current.setFilter(
+          'wards-fill',
+          (hasActive ? ['!=', ['get', 'risk_level'], 'LOW'] : ['has', 'risk_level']) as any
+        );
+      } else {
+        mapRef.current.setFilter('wards-fill', ['==', ['get', 'risk_level'], riskFilter] as any);
+      }
+    }
+  }, [selectedLocation, selectedWard, riskFilter, wards, mapLoaded]);
 
   // Update GeoJSON when forecast time slider or active wards change
   useEffect(() => {
@@ -825,11 +912,22 @@ export const MapView: React.FC<MapViewProps> = ({
           <span>${displayTemp.toFixed(1)}°</span>
         `;
       } else {
-        innerEl.className = `px-2 py-1 rounded-xl text-xs font-mono font-bold border flex items-center space-x-1.5 shadow-2xl backdrop-blur-md ${
+        innerEl.className = `px-2 py-1 rounded-xl text-xs font-mono font-bold border flex items-center space-x-1.5 shadow-2xl backdrop-blur-md transition-all ${
           isSelected
-            ? 'bg-rose-950/95 text-white border-rose-400 scale-125 z-50 ring-4 ring-rose-500/60 shadow-rose-500/50 animate-pulse'
+            ? 'scale-125 z-50 ring-4 ring-white/60 shadow-xl'
             : 'bg-slate-900/95 text-slate-100 border-slate-700 hover:border-slate-400'
         }`;
+        if (isSelected) {
+          innerEl.style.backgroundColor = '#10121a';
+          innerEl.style.borderColor = riskConfig.color;
+          innerEl.style.color = '#ffffff';
+          innerEl.style.boxShadow = `0 0 20px ${riskConfig.color}90`;
+        } else {
+          innerEl.style.backgroundColor = '';
+          innerEl.style.borderColor = '';
+          innerEl.style.color = '';
+          innerEl.style.boxShadow = '';
+        }
 
         innerEl.innerHTML = `
           <div class="flex items-center space-x-1 shrink-0" style="color:${riskConfig.color}">
@@ -933,15 +1031,17 @@ export const MapView: React.FC<MapViewProps> = ({
     });
   }, [resources, showResources, selectedLocation, mapLoaded, handleLocationClick]);
 
-  // Reset View to fit all wards
+  // Reset View to fit all wards (Home)
   const handleResetBounds = () => {
     if (!mapRef.current) return;
     mapRef.current.resize();
-    const bounds = getBounds();
-    if (bounds) {
-      mapRef.current.fitBounds(bounds, { padding: 40, maxZoom: 13.5, animate: true, duration: 1000 });
-    } else if (activeRegion?.coordinates) {
-      mapRef.current.flyTo({ center: activeRegion.coordinates, zoom: 11, duration: 1000 });
+    if (activeRegion?.coordinates) {
+      mapRef.current.flyTo({ center: activeRegion.coordinates, zoom: activeRegion.zoom || 11, duration: 800 });
+    } else {
+      const bounds = getBounds();
+      if (bounds) {
+        mapRef.current.fitBounds(bounds, { padding: 40, maxZoom: activeRegion?.zoom || 11.5, animate: true, duration: 800 });
+      }
     }
   };
 
@@ -956,28 +1056,45 @@ export const MapView: React.FC<MapViewProps> = ({
     prevRegionIdRef.current = activeRegion?.id;
 
     if (isRegionChanged) {
-      const bounds = getBounds();
-      if (bounds) {
-        mapRef.current.fitBounds(bounds, { padding: 40, maxZoom: 13.5, animate: true, duration: 1200 });
-      } else if (activeRegion) {
+      if (activeRegion?.coordinates) {
         mapRef.current.flyTo({
           center: activeRegion.coordinates,
-          zoom: activeRegion.zoom,
-          duration: 1500,
+          zoom: activeRegion.zoom || 11,
+          duration: 1000,
           essential: true,
         });
+      } else {
+        const bounds = getBounds();
+        if (bounds) {
+          mapRef.current.fitBounds(bounds, { padding: 40, maxZoom: activeRegion?.zoom || 11.5, animate: true, duration: 1000 });
+        }
       }
     }
   }, [activeRegion, wards, mapLoaded]);
 
-  // Center map when selected location changes externally
+  // Smoothly center only when selected location is explicitly switched by the user after initial load
+  const prevSelectedLocationIdRef = useRef<string | null>(null);
+  const isInitialLocationSyncRef = useRef<boolean>(true);
+
   useEffect(() => {
-    if (selectedLocation && mapRef.current && mapLoaded) {
-      mapRef.current.flyTo({
+    if (!mapRef.current || !mapLoaded) return;
+
+    // Prevent auto-zoom / auto-fly on initial load
+    if (isInitialLocationSyncRef.current) {
+      isInitialLocationSyncRef.current = false;
+      prevSelectedLocationIdRef.current = selectedLocation?.id || null;
+      return;
+    }
+
+    // Only respond when the location actually changes to a different ward/point
+    if (selectedLocation && selectedLocation.id !== prevSelectedLocationIdRef.current) {
+      prevSelectedLocationIdRef.current = selectedLocation.id;
+      // Gently center on the selected ward without forcing an aggressive deep zoom
+      const currentZoom = mapRef.current.getZoom();
+      mapRef.current.easeTo({
         center: selectedLocation.coordinates,
-        zoom: 13.5,
-        duration: 1200,
-        essential: true,
+        zoom: currentZoom < 11 ? 11.5 : currentZoom,
+        duration: 600,
       });
     }
   }, [selectedLocation, mapLoaded]);
@@ -994,7 +1111,7 @@ export const MapView: React.FC<MapViewProps> = ({
       {/* Map Element Container */}
       <div ref={mapContainer} className="w-full h-full" />
 
-      {/* High-Precision Administrative Jurisdiction Outline (Red & White Dashed Outline matching Google Maps) */}
+      {/* High-Precision Administrative Jurisdiction Outline (Dashed Outline matching Google Maps) */}
       <svg
         ref={svgOverlayRef}
         className={`absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden transition-opacity duration-300 ${
@@ -1010,8 +1127,8 @@ export const MapView: React.FC<MapViewProps> = ({
         {/* Subtle municipal coverage interior tint */}
         <path
           ref={svgPolygonRef}
-          fill="#ef4444"
-          fillOpacity="0.05"
+          fill={regionalRiskColor}
+          fillOpacity="0.08"
           stroke="none"
         />
 
@@ -1026,11 +1143,11 @@ export const MapView: React.FC<MapViewProps> = ({
           filter="url(#boundaryDropShadow)"
         />
 
-        {/* Prominent Red Dashed Administrative Perimeter (3.5px wide, dash pattern) */}
+        {/* Prominent Weather-Responsive Dashed Administrative Perimeter (3.5px wide, dash pattern) */}
         <path
           ref={svgPathRedRef}
           fill="none"
-          stroke="#ef4444"
+          stroke={regionalRiskColor}
           strokeWidth="3.5"
           strokeDasharray="9 6"
           strokeLinecap="round"
@@ -1041,16 +1158,43 @@ export const MapView: React.FC<MapViewProps> = ({
       {/* Top Left Monitored Region Jurisdiction Coverage Area Badge */}
       {activeRegion && (
         <div className="absolute top-3 left-3 z-20 pointer-events-auto select-none animate-in fade-in duration-300">
-          <div className="px-3 py-1.5 rounded-2xl bg-[#181920]/90 backdrop-blur-md border border-sky-500/30 shadow-2xl flex items-center space-x-2.5 card-highlight-rim">
+          <div
+            className="px-3 py-1.5 rounded-2xl bg-[#181920]/90 backdrop-blur-md border shadow-2xl flex items-center space-x-2.5 card-highlight-rim transition-all"
+            style={{ borderColor: `${regionalRiskColor}50` }}
+          >
             <span className="relative flex h-2.5 w-2.5 shrink-0">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${showCoverageOutline ? 'bg-sky-400' : 'bg-slate-400'}`}></span>
-              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${showCoverageOutline ? 'bg-sky-500' : 'bg-slate-500'}`}></span>
+              <span
+                className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                style={{ backgroundColor: regionalRiskColor }}
+              />
+              <span
+                className="relative inline-flex rounded-full h-2.5 w-2.5"
+                style={{ backgroundColor: regionalRiskColor }}
+              />
             </span>
             <div className="flex flex-col">
               <div className="flex items-center space-x-1.5">
-                <span className="text-[10px] font-mono font-bold tracking-wider text-sky-400 uppercase">Coverage Boundary</span>
+                <span
+                  className="text-[10px] font-mono font-bold tracking-wider uppercase"
+                  style={{ color: regionalRiskColor }}
+                >
+                  {t('coverageBoundary', 'Coverage Boundary')}
+                </span>
                 <span className="text-[10px] text-slate-500">•</span>
-                <span className="text-[10px] font-mono text-slate-300">{wards.length} Wards</span>
+                <span className="text-[10px] font-mono text-slate-300">
+                  {wards.length} {t('wardsCountLabel', 'Wards')}
+                </span>
+                <span className="text-[10px] text-slate-500">•</span>
+                <span
+                  className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border"
+                  style={{
+                    color: regionalRiskColor,
+                    borderColor: `${regionalRiskColor}60`,
+                    backgroundColor: `${regionalRiskColor}15`,
+                  }}
+                >
+                  {regionalRiskLevel} RISK
+                </span>
               </div>
               <span className="text-xs font-bold text-white tracking-tight">{activeRegion.name}</span>
             </div>

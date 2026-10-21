@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useHeatwave } from '../context/HeatwaveContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { ResourceCard } from '../components/resources/ResourceCard';
 import { DispatchModal } from '../components/resources/DispatchModal';
-import { MapView } from '../components/map/MapView';
 import type { EmergencyResource, ResourceType } from '../types/resource';
 import { StatCard } from '../components/common/StatCard';
 import {
@@ -14,16 +14,12 @@ import {
   Filter,
   Siren,
   Building2,
-  MapPin,
   Sparkles,
   Layers,
-  Radio,
   HeartPulse,
   Droplets,
   Users,
   Search,
-  LayoutGrid,
-  Columns,
   X,
 } from 'lucide-react';
 import { formatNumber } from '../utils/formatters';
@@ -31,11 +27,11 @@ import { formatNumber } from '../utils/formatters';
 export const ResourcesPage: React.FC = () => {
   const { resources, dispatchResource } = useHeatwave();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const roleType = user?.roleType || 'controller';
 
   const [selectedType, setSelectedType] = useState<ResourceType | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [layoutMode, setLayoutMode] = useState<'stacked' | 'split'>('stacked');
   const [dispatchModalResource, setDispatchModalResource] = useState<EmergencyResource | null>(null);
 
   // Set default filter tailored to active role on initial load or role switch
@@ -144,31 +140,31 @@ export const ResourcesPage: React.FC = () => {
           <div className="flex items-center space-x-2.5 mb-2 flex-wrap gap-y-1">
             <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-widest uppercase border flex items-center space-x-1.5 shadow-sm ${roleMeta.badgeColor}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              <span>{roleMeta.badgeTitle}</span>
+              <span>{t(roleMeta.badgeTitle, roleMeta.badgeTitle)}</span>
             </span>
             <span className="hidden sm:inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#13141a] text-emerald-400 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span>LIVE GROUND TELEMETRY</span>
+              <span>{t('liveGroundTelemetry', 'LIVE GROUND TELEMETRY')}</span>
             </span>
           </div>
 
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug">
-            {roleMeta.title}
+            {t(roleMeta.title, roleMeta.title)}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-            {roleMeta.description}
+            {t(roleMeta.description, roleMeta.description)}
           </p>
         </div>
 
         <div className="relative z-10 flex flex-wrap items-center gap-2.5 shrink-0 self-start md:self-auto">
           <div className="px-3.5 py-2 rounded-2xl bg-[#13141a] border border-white/[0.08] text-slate-200 text-xs font-bold font-mono flex items-center space-x-2 shadow-md">
             <Layers className="w-4 h-4 text-sky-400 shrink-0" />
-            <span>{roleMeta.chip1}</span>
+            <span>{t(roleMeta.chip1, roleMeta.chip1)}</span>
           </div>
 
           <div className="px-3.5 py-2 rounded-2xl bg-[#13141a] border border-white/[0.08] text-amber-300 text-xs font-bold font-mono flex items-center space-x-2 shadow-md">
             <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>{roleMeta.chip2}</span>
+            <span>{t(roleMeta.chip2, roleMeta.chip2)}</span>
           </div>
         </div>
       </div>
@@ -176,47 +172,47 @@ export const ResourcesPage: React.FC = () => {
       {/* Summary KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title={roleMeta.stat1.title}
+          title={t(roleMeta.stat1.title, roleMeta.stat1.title)}
           value={roleMeta.stat1.value}
-          subtitle={roleMeta.stat1.subtitle}
+          subtitle={t(roleMeta.stat1.subtitle, roleMeta.stat1.subtitle)}
           icon={roleMeta.stat1.icon}
           accentColor={roleMeta.stat1.accentColor}
-          trend={{ value: 'ACTIVE', isNegative: false }}
+          trend={{ value: t('active', 'ACTIVE'), isNegative: false }}
           progress={85}
-          metaText={roleMeta.stat1.metaText}
+          metaText={t(roleMeta.stat1.metaText, roleMeta.stat1.metaText)}
         />
 
         <StatCard
-          title={roleMeta.stat2.title}
+          title={t(roleMeta.stat2.title, roleMeta.stat2.title)}
           value={roleMeta.stat2.value}
-          subtitle={roleMeta.stat2.subtitle}
+          subtitle={t(roleMeta.stat2.subtitle, roleMeta.stat2.subtitle)}
           icon={roleMeta.stat2.icon}
           accentColor={roleMeta.stat2.accentColor}
-          trend={{ value: 'CAPACITY OK', isNegative: false }}
+          trend={{ value: t('capacityOk', 'CAPACITY OK'), isNegative: false }}
           progress={65}
-          metaText={roleMeta.stat2.metaText}
+          metaText={t(roleMeta.stat2.metaText, roleMeta.stat2.metaText)}
         />
 
         <StatCard
-          title={roleMeta.stat3.title}
+          title={t(roleMeta.stat3.title, roleMeta.stat3.title)}
           value={roleMeta.stat3.value}
-          subtitle={roleMeta.stat3.subtitle}
+          subtitle={t(roleMeta.stat3.subtitle, roleMeta.stat3.subtitle)}
           icon={roleMeta.stat3.icon}
           accentColor={roleMeta.stat3.accentColor}
-          trend={{ value: 'HIGH PRIORITY', isNegative: false }}
+          trend={{ value: t('highPriority', 'HIGH PRIORITY'), isNegative: false }}
           progress={90}
-          metaText={roleMeta.stat3.metaText}
+          metaText={t(roleMeta.stat3.metaText, roleMeta.stat3.metaText)}
         />
 
         <StatCard
-          title={roleMeta.stat4.title}
+          title={t(roleMeta.stat4.title, roleMeta.stat4.title)}
           value={roleMeta.stat4.value}
-          subtitle={roleMeta.stat4.subtitle}
+          subtitle={t(roleMeta.stat4.subtitle, roleMeta.stat4.subtitle)}
           icon={roleMeta.stat4.icon}
           accentColor={roleMeta.stat4.accentColor}
-          trend={{ value: 'EXPANDED', isNegative: false }}
+          trend={{ value: t('expanded', 'EXPANDED'), isNegative: false }}
           progress={95}
-          metaText={roleMeta.stat4.metaText}
+          metaText={t(roleMeta.stat4.metaText, roleMeta.stat4.metaText)}
         />
       </div>
 
@@ -255,10 +251,9 @@ export const ResourcesPage: React.FC = () => {
           })}
         </div>
 
-        {/* Right side: Search Box + Layout Mode Switcher */}
+        {/* Right side: Search Box */}
         <div className="flex items-center space-x-2 shrink-0 self-end xl:self-auto w-full xl:w-auto">
-          {/* Quick Search */}
-          <div className="relative flex-1 sm:w-64">
+          <div className="relative flex-1 sm:w-72">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -277,213 +272,56 @@ export const ResourcesPage: React.FC = () => {
               </button>
             )}
           </div>
-
-          {/* Layout Mode Switcher */}
-          <div className="flex items-center space-x-1 bg-[#13141a] p-1 rounded-xl border border-white/[0.06] shrink-0">
-            <button
-              onClick={() => setLayoutMode('stacked')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
-                layoutMode === 'stacked'
-                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Full-Width Panoramic Overview"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-[11px] font-mono">Overview</span>
-            </button>
-            <button
-              onClick={() => setLayoutMode('split')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
-                layoutMode === 'split'
-                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Side-by-Side Workstation (Height-Synced)"
-            >
-              <Columns className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-[11px] font-mono">Split</span>
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* Main Workstation Layout */}
-      {layoutMode === 'stacked' ? (
-        /* ================= STACKED PANORAMIC LAYOUT (NO GAPS) ================= */
-        <div className="space-y-6">
-          {/* 1. Full-Width GIS Resource Overlay Map */}
-          <div className="bg-[#181920] p-4 sm:p-5 rounded-3xl border border-white/[0.06] shadow-xl space-y-3.5 card-highlight-rim">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center space-x-2">
-                <Layers className="w-4 h-4 text-sky-400" />
-                <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                  GIS Resource & Fleet Telemetry Grid
-                </span>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-sky-500/15 text-sky-300 border border-sky-500/25">
-                {filteredResources.length} Units Mapped
-              </span>
-            </div>
-
-            <div className="overflow-hidden rounded-2xl border border-white/[0.06]">
-              <MapView height="h-[460px] sm:h-[500px] xl:h-[540px]" />
-            </div>
-
-            {/* Quick Legend for Resource Map */}
-            <div className="p-3 rounded-2xl bg-[#13141a] border border-white/[0.05] grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[10px] font-mono text-slate-300">
-              <div className="flex items-center justify-center space-x-1.5 py-1">
-                <span className="w-2 h-2 rounded-full bg-rose-500" />
-                <span>🚑 ALS Ambulance</span>
-              </div>
-              <div className="flex items-center justify-center space-x-1.5 py-1">
-                <span className="w-2 h-2 rounded-full bg-teal-500" />
-                <span>🏥 Referral ER</span>
-              </div>
-              <div className="flex items-center justify-center space-x-1.5 py-1">
-                <span className="w-2 h-2 rounded-full bg-sky-500" />
-                <span>💧 Water Tanker</span>
-              </div>
-              <div className="flex items-center justify-center space-x-1.5 py-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>❄️ Cooling Station</span>
-              </div>
-            </div>
+      {/* Deployment Roster Grid */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
+              Deployment Roster ({filteredResources.length})
+            </span>
+            <span className="text-xs text-slate-500 font-mono hidden sm:inline">
+              • Ordered by ML Heatwave Vulnerability Index
+            </span>
           </div>
-
-          {/* 2. Full-Width Deployment Roster Grid (3-to-4 Columns, Zero Gap) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
-                  Deployment Roster ({filteredResources.length})
-                </span>
-                <span className="text-xs text-slate-500 font-mono hidden sm:inline">
-                  • Ordered by ML Heatwave Vulnerability Index
-                </span>
-              </div>
-              {searchQuery && (
-                <span className="text-[11px] font-mono text-sky-400">
-                  Filtering by: "{searchQuery}"
-                </span>
-              )}
-            </div>
-
-            {filteredResources.length === 0 ? (
-              <div className="bg-[#181920] p-12 rounded-3xl border border-white/[0.06] text-center space-y-3 card-highlight-rim">
-                <Truck className="w-10 h-10 text-slate-500 mx-auto" />
-                <h3 className="text-sm font-bold text-white">No Matching Fleet Units Found</h3>
-                <p className="text-xs text-slate-400">
-                  Try adjusting your search query or reset your resource category filter.
-                </p>
-                <button
-                  onClick={() => {
-                    setSelectedType('ALL');
-                    setSearchQuery('');
-                  }}
-                  className="px-4 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] text-xs font-semibold text-white transition-colors cursor-pointer"
-                >
-                  Reset Filters
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-                {filteredResources.map((res) => (
-                  <ResourceCard
-                    key={res.id}
-                    resource={res}
-                    onDispatch={(r) => setDispatchModalResource(r)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          {searchQuery && (
+            <span className="text-[11px] font-mono text-sky-400">
+              Filtering by: "{searchQuery}"
+            </span>
+          )}
         </div>
-      ) : (
-        /* ================= SIDE-BY-SIDE SPLIT WORKSTATION (HEIGHT-SYNCED, NO GAP) ================= */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: GIS Map with Controls & Legend */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="bg-[#181920] p-4 sm:p-5 rounded-3xl border border-white/[0.06] shadow-xl space-y-3.5 card-highlight-rim">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center space-x-2">
-                  <Layers className="w-4 h-4 text-sky-400" />
-                  <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                    GIS Resource Overlay
-                  </span>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/15 text-sky-300 border border-sky-500/25">
-                  {filteredResources.length} Units Mapped
-                </span>
-              </div>
 
-              <div className="overflow-hidden rounded-2xl border border-white/[0.06]">
-                <MapView height="h-[520px]" />
-              </div>
-
-              {/* Quick Legend for Resource Map */}
-              <div className="p-3 rounded-2xl bg-[#13141a] border border-white/[0.05] grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[10px] font-mono text-slate-300">
-                <div className="flex items-center justify-center space-x-1.5 py-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-500" />
-                  <span>🚑 ALS Ambulance</span>
-                </div>
-                <div className="flex items-center justify-center space-x-1.5 py-1">
-                  <span className="w-2 h-2 rounded-full bg-teal-500" />
-                  <span>🏥 Referral ER</span>
-                </div>
-                <div className="flex items-center justify-center space-x-1.5 py-1">
-                  <span className="w-2 h-2 rounded-full bg-sky-500" />
-                  <span>💧 Water Tanker</span>
-                </div>
-                <div className="flex items-center justify-center space-x-1.5 py-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span>❄️ Cooling Station</span>
-                </div>
-              </div>
-            </div>
+        {filteredResources.length === 0 ? (
+          <div className="bg-[#181920] p-12 rounded-3xl border border-white/[0.06] text-center space-y-3 card-highlight-rim">
+            <Truck className="w-10 h-10 text-slate-500 mx-auto" />
+            <h3 className="text-sm font-bold text-white">No Matching Fleet Units Found</h3>
+            <p className="text-xs text-slate-400">
+              Try adjusting your search query or reset your resource category filter.
+            </p>
+            <button
+              onClick={() => {
+                setSelectedType('ALL');
+                setSearchQuery('');
+              }}
+              className="px-4 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] text-xs font-semibold text-white transition-colors cursor-pointer"
+            >
+              Reset Filters
+            </button>
           </div>
-
-          {/* Right Column: Scroll-Synced Roster (Matches Map Height Exactly) */}
-          <div className="lg:col-span-7 space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
-                Deployment Roster ({filteredResources.length})
-              </span>
-              <span className="text-xs text-slate-500 font-mono">
-                Scroll-Synced • {filteredResources.length} Units
-              </span>
-            </div>
-
-            {filteredResources.length === 0 ? (
-              <div className="bg-[#181920] p-10 rounded-3xl border border-white/[0.06] text-center space-y-3 card-highlight-rim">
-                <Truck className="w-10 h-10 text-slate-500 mx-auto" />
-                <h3 className="text-sm font-bold text-white">No Matching Fleet Units</h3>
-                <button
-                  onClick={() => {
-                    setSelectedType('ALL');
-                    setSearchQuery('');
-                  }}
-                  className="px-4 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] text-xs font-semibold text-white transition-colors cursor-pointer"
-                >
-                  Reset Filters
-                </button>
-              </div>
-            ) : (
-              <div className="max-h-[640px] overflow-y-auto pr-1.5 space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2 gap-4">
-                  {filteredResources.map((res) => (
-                    <ResourceCard
-                      key={res.id}
-                      resource={res}
-                      onDispatch={(r) => setDispatchModalResource(r)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+            {filteredResources.map((res) => (
+              <ResourceCard
+                key={res.id}
+                resource={res}
+                onDispatch={(r) => setDispatchModalResource(r)}
+              />
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Dispatch Modal */}
       <DispatchModal

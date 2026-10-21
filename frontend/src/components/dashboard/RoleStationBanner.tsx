@@ -66,8 +66,8 @@ export const RoleStationBanner: React.FC<RoleStationBannerProps> = ({ onActionTr
       themeBorder: 'border-[#232838]',
       themeGlow: 'from-amber-900/20 via-sky-900/10 to-transparent',
       badgeBg: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-      badgeLabel: 'NDMA NATIONAL L5 COMMAND',
-      stationTitle: 'National Disaster Management Authority (NDMA)',
+      badgeLabel: 'HEATWAVE NATIONAL COMMAND',
+      stationTitle: 'Heatwave Early Warning Authority',
       roleIcon: Radio,
       quickActions: [
         {
@@ -79,7 +79,7 @@ export const RoleStationBanner: React.FC<RoleStationBannerProps> = ({ onActionTr
         },
         {
           id: 'sync_gateways',
-          label: 'Sync NDMA & SEOC Gateways',
+          label: 'Sync SEOC Gateways',
           icon: RefreshCw,
           soundType: 'toggle' as const,
           btnStyle: 'bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border-sky-500/40',
@@ -194,7 +194,7 @@ export const RoleStationBanner: React.FC<RoleStationBannerProps> = ({ onActionTr
           {/* Statutory Apex Command Status */}
           <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-[#13141a] border border-amber-500/30 text-xs font-medium text-amber-300 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-mono text-[11px] font-bold tracking-wide uppercase">NDMA Apex Console</span>
+            <span className="font-mono text-[11px] font-bold tracking-wide uppercase">Apex Command Console</span>
           </div>
         </div>
 
@@ -208,7 +208,7 @@ export const RoleStationBanner: React.FC<RoleStationBannerProps> = ({ onActionTr
               >
                 <div className="w-full h-full rounded-2xl bg-[#14151c] flex items-center justify-center">
                   <span className="text-sm sm:text-base font-bold text-white font-mono">
-                    {user?.initials || 'DC'}
+                    {user?.initials || 'HW'}
                   </span>
                 </div>
               </div>

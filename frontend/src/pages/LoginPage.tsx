@@ -3,16 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
-  Shield,
+  User,
   Lock,
-  Mail,
   Eye,
   EyeOff,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
+  Wifi,
+  Shield,
   Sun,
   Moon,
+  AlertCircle,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -20,12 +21,12 @@ export const LoginPage: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
   const { resolvedTheme, toggleTheme } = useTheme();
 
-  const [email, setEmail] = useState('commander@ndma.gov.in');
+  const [username, setUsername] = useState('commander');
   const [password, setPassword] = useState('ndma@2026');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberTerminal, setRememberTerminal] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [forgotNotice, setForgotNotice] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -37,202 +38,246 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!email.trim()) {
-      setErrorMessage('Please provide your registered NDMA officer clearance email.');
+    if (!username.trim()) {
+      setErrorMessage('Please enter your username.');
       return;
     }
     if (!password.trim()) {
-      setErrorMessage('Please enter your station passcode / password.');
+      setErrorMessage('Please enter your password.');
       return;
     }
 
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
-      await login({ email, password, officerId: 'NDMA-HQ-2026' });
+      await new Promise((r) => setTimeout(r, 450));
+      const authEmail = username.includes('@') ? username : `${username}@ndma.gov.in`;
+      await login({ email: authEmail, password, officerId: 'NDMA-HQ-2026' });
       navigate('/dashboard', { replace: true });
     } catch {
-      setErrorMessage('Authentication clearance failed. Please re-verify your NDMA credentials.');
+      setErrorMessage('Authentication clearance failed. Please re-verify your credentials.');
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-black text-slate-100 flex flex-col justify-between font-sans selection:bg-amber-500/30 selection:text-white relative overflow-hidden">
-      {/* Subtle Background Glows */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[450px] bg-gradient-to-b from-amber-500/10 via-sky-900/10 to-transparent blur-[130px] rounded-full" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-gradient-to-t from-sky-950/20 to-transparent blur-[140px] rounded-full" />
+    <div className="min-h-screen bg-[#0a0d14] text-slate-100 flex flex-col justify-between font-sans selection:bg-orange-500/30 selection:text-white relative overflow-hidden">
+      {/* Background Circuit Board SVG Pattern */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-20"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <pattern id="circuit-grid" width="180" height="180" patternUnits="userSpaceOnUse">
+            <path
+              d="M 15 15 L 60 15 L 85 40 L 145 40 M 85 40 L 85 95 L 120 130 M 180 60 L 150 60 L 125 85 L 125 150 L 155 180 M 35 180 L 35 135 L 60 110 L 105 110 M 0 100 L 45 100 L 70 125 M 155 0 L 155 35 L 135 55"
+              fill="none"
+              stroke="rgba(148, 163, 184, 0.3)"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {/* Terminal nodes */}
+            <circle cx="60" cy="15" r="2.5" fill="rgba(56, 189, 248, 0.6)" />
+            <circle cx="145" cy="40" r="2.5" fill="rgba(249, 115, 22, 0.6)" />
+            <circle cx="85" cy="95" r="2" fill="rgba(148, 163, 184, 0.5)" />
+            <circle cx="120" cy="130" r="3" fill="rgba(56, 189, 248, 0.7)" />
+            <circle cx="150" cy="60" r="2.5" fill="rgba(148, 163, 184, 0.5)" />
+            <circle cx="60" cy="110" r="2" fill="rgba(249, 115, 22, 0.6)" />
+            <circle cx="35" cy="135" r="2.5" fill="rgba(56, 189, 248, 0.6)" />
+            <circle cx="70" cy="125" r="2" fill="rgba(148, 163, 184, 0.5)" />
+            {/* Micro grid dots */}
+            <circle cx="15" cy="15" r="1" fill="rgba(255, 255, 255, 0.2)" />
+            <circle cx="165" cy="165" r="1" fill="rgba(255, 255, 255, 0.2)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#circuit-grid)" />
+      </svg>
+
+      {/* Atmospheric Radial Glow behind card */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] bg-gradient-to-tr from-amber-500/10 via-cyan-500/5 to-transparent blur-[130px] rounded-full pointer-events-none" />
+
+      {/* Subtle 4-Point Star Sparkle at Bottom Right (Matching screenshot) */}
+      <div className="absolute bottom-10 sm:bottom-16 right-8 sm:right-24 pointer-events-none select-none opacity-35">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" className="text-slate-400 animate-pulse">
+          <path d="M12 0L14.4 9.6L24 12L14.4 14.4L12 24L9.6 14.4L0 12L9.6 9.6L12 0Z" />
+        </svg>
       </div>
 
-      {/* Top Bar */}
-      <header className="relative z-10 px-4 sm:px-8 py-3.5 border-b border-[#232838] flex items-center justify-between bg-black/80 backdrop-blur-md">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white shadow-md shadow-amber-900/30">
-            <Shield className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-white tracking-wide flex items-center space-x-2">
-              <span>National Disaster Management Authority</span>
-              <span className="hidden md:inline px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                GOVT. OF INDIA
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400 font-mono">Heatwave Early Warning & Crisis Operations Gateway</p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>NDMA SECURE SSL L5</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="p-2 rounded-xl bg-[#161922] border border-[#232838] text-slate-300 hover:text-white transition-colors cursor-pointer"
-            title="Toggle Theme"
-          >
-            {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
-          </button>
-        </div>
+      {/* Minimal Top Header with Theme Toggle */}
+      <header className="relative z-20 px-6 py-4 flex items-center justify-end">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="p-2 rounded-xl bg-[#141824]/80 border border-white/[0.08] text-slate-400 hover:text-white transition-colors cursor-pointer shadow-md"
+          title="Toggle Theme"
+        >
+          {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+        </button>
       </header>
 
-      {/* Centered Login Card */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 my-6">
-        <div className="w-full max-w-md bg-[#161922] border border-[#232838] rounded-3xl shadow-2xl shadow-black/80 overflow-hidden relative">
-          {/* Institutional Insignia Header */}
-          <div className="px-6 sm:px-8 pt-8 pb-5 text-center border-b border-[#232838]">
-            <div className="w-14 h-14 rounded-2xl bg-[#12151f] border border-[#232838] shadow-lg flex items-center justify-center mx-auto mb-3.5 relative">
-              <Shield className="w-7 h-7 text-amber-400" />
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-700 border border-[#232838] flex items-center justify-center text-[9px] font-bold text-white shadow">
-                IN
+      {/* Centered Login Viewport */}
+      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
+        <div className="relative w-full max-w-[420px]">
+          {/* Side Hardware Chassis Tabs / Wings (matching screenshot layered bezel) */}
+          <div className="absolute -left-2.5 top-28 bottom-28 w-4 bg-[#11141e] border-l border-y border-white/[0.05] rounded-l-2xl -z-10 shadow-xl" />
+          <div className="absolute -right-2.5 top-28 bottom-28 w-4 bg-[#11141e] border-r border-y border-white/[0.05] rounded-r-2xl -z-10 shadow-xl" />
+
+          {/* Main Glassmorphic Card Container */}
+          <div className="relative w-full bg-[#141824]/90 backdrop-blur-2xl border border-white/[0.09] rounded-[32px] p-7 sm:p-8 shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_40px_rgba(255,107,43,0.08)] card-highlight-rim space-y-6">
+            {/* Brand Header */}
+            <div className="flex items-center space-x-3.5 pt-1">
+              {/* Heatwave Glow Logo */}
+              <div className="w-14 h-14 rounded-2xl bg-[#0f121b] border border-white/[0.08] flex items-center justify-center p-1 shadow-md shadow-orange-500/10 shrink-0 overflow-hidden">
+                <img
+                  src="/logo.png"
+                  alt="Heatwave Early Warning"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+
+              {/* Brand Typography */}
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-wider font-sans leading-none">
+                  HEATWAVE
+                </h1>
+                <p className="text-[11px] sm:text-xs text-slate-300 font-medium mt-1 leading-snug">
+                  Early Warning Authority
+                </p>
+                <p className="text-[10px] text-slate-400 font-mono tracking-wide">
+                  Govt. of India
+                </p>
               </div>
             </div>
 
-            <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-[#12151f] text-slate-300 border border-[#232838] text-[10px] font-mono font-bold uppercase tracking-widest mb-2">
-              <span>National Disaster Management Authority</span>
-            </div>
+            {/* Error Message Alert */}
+            {errorMessage && (
+              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs flex items-center space-x-2 animate-in fade-in duration-200">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-sans">
-              NDMA Operations Command Gateway
-            </h1>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
-              Authorized central portal for National Early Warning System, State Emergency Operations Centers (SEOC), and Rapid Relief Forces.
-            </p>
-          </div>
+            {/* Forgot Password Toast Notification */}
+            {forgotNotice && (
+              <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/25 text-sky-300 text-xs flex items-center justify-between animate-in fade-in duration-200">
+                <span>Password reset protocol dispatched to registered NDMA email.</span>
+                <button
+                  onClick={() => setForgotNotice(false)}
+                  className="p-1 hover:text-white cursor-pointer ml-2"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
-          {/* Login Form Body */}
-          <div className="p-6 sm:p-8 space-y-4">
+            {/* Form */}
             <form onSubmit={handleCredentialsSubmit} className="space-y-4">
-              {errorMessage && (
-                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center space-x-2 animate-in fade-in duration-200">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
-
-              {/* Email Field */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 block">
-                  NDMA Registered Official Email
-                </label>
-                <div className="relative flex items-center">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+              {/* Username Input Field */}
+              <div className="relative rounded-2xl bg-[#1b202e] border border-white/[0.08] focus-within:border-cyan-500/50 transition-all overflow-hidden shadow-inner">
+                <div className="flex items-center px-4 py-3.5">
+                  <User className="w-4 h-4 text-slate-400 shrink-0 mr-3" />
                   <input
-                    type="email"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Username"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="commander@ndma.gov.in"
-                    className="w-full bg-[#12151f] border border-[#232838] rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-all font-sans"
+                    className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none font-sans"
                   />
                 </div>
+                {/* Luminous Cyan-to-Orange bottom edge highlight */}
+                <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400/80 to-amber-500/70" />
               </div>
 
-              {/* Password Field with Fixed Eye Toggle */}
+              {/* Password Input Field */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-300">
-                    Station Passcode
-                  </label>
-                  <span className="text-[11px] text-amber-400 font-mono">
-                    NDMA Encrypted
-                  </span>
+                <div className="relative rounded-2xl bg-[#1b202e] border border-white/[0.08] focus-within:border-cyan-500/50 transition-all overflow-hidden shadow-inner">
+                  <div className="flex items-center px-4 py-3.5">
+                    <Lock className="w-4 h-4 text-slate-400 shrink-0 mr-3" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none font-mono tracking-widest"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-slate-400" />
+                      )}
+                    </button>
+                  </div>
+                  {/* Luminous Cyan-to-Orange bottom edge highlight */}
+                  <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400/80 to-amber-500/70" />
                 </div>
-                <div className="relative flex items-center">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter station password"
-                    className="w-full bg-[#12151f] border border-[#232838] rounded-xl pl-10 pr-11 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-all font-mono"
-                  />
+
+                {/* Forgot Password Link */}
+                <div className="flex justify-end pt-1">
                   <button
                     type="button"
-                    tabIndex={-1}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowPassword((prev) => !prev);
-                    }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer z-10"
-                    title={showPassword ? 'Hide password' : 'Show password'}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setForgotNotice(true)}
+                    className="text-xs text-sky-400/90 hover:text-sky-300 font-medium transition-colors cursor-pointer"
                   >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4 text-amber-400" />
-                    ) : (
-                      <Eye className="w-4 h-4 text-slate-400" />
-                    )}
+                    Forgot Password?
                   </button>
                 </div>
               </div>
 
-              {/* Session Persistence */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center space-x-2 text-slate-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rememberTerminal}
-                    onChange={(e) => setRememberTerminal(e.target.checked)}
-                    className="rounded bg-[#12151f] border-[#232838] text-amber-500 focus:ring-amber-500/20"
-                  />
-                  <span>Persist session on this workstation</span>
-                </label>
-              </div>
-
-              {/* Submit Button */}
+              {/* Radiant Warm Gradient LOGIN Button */}
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:via-amber-500 hover:to-amber-600 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-lg shadow-amber-950/40 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 mt-2"
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#ff5e36] via-[#ff7826] to-[#ffaa2a] hover:from-[#ff6b44] hover:via-[#ff8536] hover:to-[#ffb73d] text-white font-black text-sm sm:text-base tracking-wider uppercase shadow-[0_12px_28px_rgba(255,100,40,0.45)] hover:shadow-[0_16px_36px_rgba(255,100,40,0.6)] active:scale-[0.99] transition-all duration-200 cursor-pointer disabled:opacity-50 flex items-center justify-center space-x-2 mt-2"
               >
-                <span>{isLoading ? 'Authorizing Clearance...' : 'Authorize NDMA Clearance'}</span>
-                <ArrowRight className="w-4 h-4 text-slate-950" />
+                {isLoading ? (
+                  <span className="flex items-center space-x-2">
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>AUTHENTICATING...</span>
+                  </span>
+                ) : (
+                  <span>LOGIN</span>
+                )}
               </button>
             </form>
-          </div>
 
-          {/* Security Notice Footer */}
-          <div className="px-6 sm:px-8 py-3.5 bg-black border-t border-[#232838] flex items-center justify-between text-[11px] text-slate-400">
-            <div className="flex items-center space-x-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>NDMA Cyber Security Protocol v4.2</span>
+            {/* Footer Telemetry Badges */}
+            <div className="grid grid-cols-3 items-center pt-2 text-slate-400 text-xs font-mono">
+              {/* Left: Ping */}
+              <div className="flex items-center space-x-1.5 justify-start text-slate-400">
+                <Wifi className="w-4 h-4 text-slate-400" />
+                <span>Ping</span>
+              </div>
+
+              {/* Center: SECURE (Lock icon on top + text below) */}
+              <div className="flex flex-col items-center justify-center text-slate-400">
+                <Lock className="w-3.5 h-3.5 text-slate-400 mb-0.5" />
+                <span className="text-[10px] font-bold tracking-widest uppercase">
+                  SECURE
+                </span>
+              </div>
+
+              {/* Right: UTCI */}
+              <div className="flex items-center space-x-1.5 justify-end text-slate-400">
+                <Shield className="w-4 h-4 text-slate-400" />
+                <span>UTCI</span>
+              </div>
             </div>
-            <span className="font-mono text-[10px] text-slate-400">SSL / TLS 1.3 • AES-256</span>
           </div>
         </div>
       </main>
 
-      {/* Page Footer */}
-      <footer className="relative z-10 py-4 px-6 text-center text-xs text-slate-400 border-t border-[#232838]">
-        <p>
-          National Disaster Management Authority (NDMA), Ministry of Home Affairs, Government of India. Authorized Use Only.
-        </p>
+      {/* Bottom Minimal Legal Clearance */}
+      <footer className="relative z-10 py-3 text-center text-[10px] text-slate-500 font-mono">
+        Heatwave Early Warning System • Govt. of India
       </footer>
     </div>
   );

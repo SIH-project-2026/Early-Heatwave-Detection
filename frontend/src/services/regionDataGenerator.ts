@@ -292,7 +292,7 @@ export function generateWardsForRegion(region: MunicipalRegion, liveWeather?: Li
     const hvi = Number(Math.max(0.25, Math.min(0.96, baseHvi + template.hviOffset)).toFixed(2));
     const ndvi = Number(Math.max(0.06, Math.min(0.55, 0.45 - template.paged * 0.004)).toFixed(2));
 
-    const riskLevel: RiskLevel = calculateRiskLevel(utci, wbgt, hvi);
+    const riskLevel: RiskLevel = calculateRiskLevel(utci, wbgt, hvi, tempC);
 
     const outdoorWorkersEstimate = Math.round(template.pop * (template.density === 'HIGH' ? 0.22 : template.density === 'MODERATE' ? 0.12 : 0.04));
 
@@ -320,6 +320,8 @@ export function generateWardsForRegion(region: MunicipalRegion, liveWeather?: Li
         humidity,
         heatIndex: Number((tempC + (humidity / 100) * 8.5).toFixed(1)),
         riskLevel,
+        isActive: riskLevel !== 'LOW',
+        status: (riskLevel !== 'LOW' ? 'ACTIVE' : 'INACTIVE') as 'ACTIVE' | 'INACTIVE',
       },
       recommendedActions:
         riskLevel === 'SEVERE'
@@ -354,10 +356,11 @@ export function generateGeoJSONForWards(wards: Ward[], hourOffset = 0) {
     features: wards.map((ward, idx) => {
       const timeFactor = Math.sin((hourOffset / 24) * Math.PI * 2);
       const tempDelta = timeFactor * 4.5;
-      const hourUtci = Math.max(34, Math.min(52, ward.currentMetrics.utci + tempDelta));
-      const hourWbgt = Math.max(24, Math.min(36, ward.currentMetrics.wbgt + tempDelta * 0.6));
+      const hourTemp = Number((ward.currentMetrics.tempC + tempDelta * 0.7).toFixed(1));
+      const hourUtci = Number(Math.max(5, Math.min(55, ward.currentMetrics.utci + tempDelta)).toFixed(1));
+      const hourWbgt = Number(Math.max(5, Math.min(40, ward.currentMetrics.wbgt + tempDelta * 0.6)).toFixed(1));
 
-      const dynamicRisk = calculateRiskLevel(hourUtci, hourWbgt, ward.vulnerability.hvi);
+      const dynamicRisk = calculateRiskLevel(hourUtci, hourWbgt, ward.vulnerability.hvi, hourTemp);
 
       return {
         type: 'Feature' as const,
@@ -373,6 +376,8 @@ export function generateGeoJSONForWards(wards: Ward[], hourOffset = 0) {
           wbgt: Number(hourWbgt.toFixed(1)),
           tempC: Number((ward.currentMetrics.tempC + tempDelta * 0.7).toFixed(1)),
           risk_level: dynamicRisk,
+          is_active: dynamicRisk !== 'LOW',
+          status: dynamicRisk !== 'LOW' ? 'ACTIVE' : 'INACTIVE',
         },
         geometry: {
           type: 'Polygon' as const,
@@ -502,9 +507,15 @@ export function generateResourcesForRegion(region: MunicipalRegion, wards: Ward[
 export function generateAlertsForRegion(region: MunicipalRegion, wards: Ward[]): HeatAlert[] {
   const severeWards = wards.filter((w) => w.currentMetrics.riskLevel === 'SEVERE');
   const highWards = wards.filter((w) => w.currentMetrics.riskLevel === 'HIGH');
-  const targetWards = severeWards.length > 0 ? severeWards : highWards.length > 0 ? highWards : wards.slice(0, 2);
+  const modWards = wards.filter((w) => w.currentMetrics.riskLevel === 'MODERATE');
+  const activeWards = severeWards.length > 0 ? severeWards : highWards.length > 0 ? highWards : modWards;
 
-  return targetWards.slice(0, 3).map((ward, i) => {
+  // If no wards are active (all LOW risk), do not generate active heatwave alerts
+  if (activeWards.length === 0) {
+    return [];
+  }
+
+  return activeWards.slice(0, 3).map((ward, i) => {
     const risk = ward.currentMetrics.riskLevel;
     const isRed = risk === 'SEVERE';
     const isHigh = risk === 'HIGH';

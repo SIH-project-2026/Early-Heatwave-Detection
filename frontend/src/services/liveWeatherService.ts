@@ -1,3 +1,5 @@
+import { calculateRiskLevel } from '../utils/riskUtils';
+
 export interface DailyForecastItem {
   date: string;
   dayName: string; // "Fri", "Sat", "Sun", etc.
@@ -320,10 +322,12 @@ export async function fetchLiveWeatherForCoords(lat: number, lng: number, placeN
     }. High relative humidity (${humidity}%) restricts sweat evaporation, elevating thermal strain. Stay hydrated and avoid heavy exertion.`,
   };
 
-  let riskLevel: 'SEVERE' | 'HIGH' | 'MODERATE' | 'LOW' = 'LOW';
-  if (hviScore >= 0.75 || apparentTempC >= 45) riskLevel = 'SEVERE';
-  else if (hviScore >= 0.60 || apparentTempC >= 40) riskLevel = 'HIGH';
-  else if (hviScore >= 0.40 || apparentTempC >= 32) riskLevel = 'MODERATE';
+  const riskLevel: 'SEVERE' | 'HIGH' | 'MODERATE' | 'LOW' = calculateRiskLevel(
+    apparentTempC,
+    wbgtIndex,
+    hviScore,
+    tempC
+  );
 
   const hourly = openMeteoData?.hourly || {};
 

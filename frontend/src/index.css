@@ -614,17 +614,50 @@ html.light aside button[class*="from-sky-950"] {
 html.light aside button[class*="from-sky-950"] * {
   color: #0284c7 !important;
 }
-html.light aside .border-t {
+html.light aside .border-t,
+html.light aside [class*="border-t"],
+html.light aside .bg-black,
+html.light aside [class*="bg-black"] {
   border-color: #e2e8f0 !important;
+  background-color: #ffffff !important;
 }
 html.light aside .border-t > div {
   background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
 }
+html.light aside .border-t > div:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+html.light aside .border-t > div:hover h4 {
+  color: #0284c7 !important;
+}
+html.light aside .border-t > div:hover svg.lucide-chevron-right {
+  color: #0284c7 !important;
+}
+html.light aside .border-t > div[class*="ring-sky-400"] {
+  background-color: #f0f9ff !important;
+  border-color: #bae6fd !important;
+}
+html.light aside .border-t > div[class*="ring-sky-400"] h4 {
+  color: #0284c7 !important;
+}
 html.light aside .border-t .bg-sky-950\/80 {
   background-color: #e0f2fe !important;
   color: #0369a1 !important;
   border-color: #bae6fd !important;
+}
+html.light aside .border-t .group-hover\:flex {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1) !important;
+}
+html.light aside .border-t .group-hover\:flex span {
+  color: #0f172a !important;
+}
+html.light aside .border-t .group-hover\:flex span.text-slate-400 {
+  color: #64748b !important;
 }
 
 /* 13. Weather Hero & Forecast Widgets in Light Mode */

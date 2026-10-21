@@ -555,7 +555,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <>
       {/* ── DESKTOP SEARCH BAR (visible on md and up) ── */}
-      <div ref={containerRef} className={`relative flex-1 max-w-md mx-2 hidden md:block ${className}`}>
+      <div ref={containerRef} className={`relative z-50 flex-1 max-w-md mx-2 hidden md:block ${className}`}>
         <div className="relative flex items-center w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-4 pointer-events-none" />
           <input
@@ -596,7 +596,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
         {/* Floating Results Dropdown */}
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-2xl bg-[#121319]/95 backdrop-blur-2xl border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.9)] p-3 max-h-[480px] overflow-y-auto card-highlight-rim animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="absolute top-full left-0 right-0 mt-2 z-[100] rounded-2xl bg-[#121319]/98 backdrop-blur-2xl border border-white/[0.1] shadow-[0_25px_70px_rgba(0,0,0,0.95)] p-3 max-h-[480px] overflow-y-auto card-highlight-rim animate-in fade-in slide-in-from-top-2 duration-150">
             {renderResultsList(false)}
           </div>
         )}

@@ -921,7 +921,7 @@ export const HumanResourcesPage: React.FC = () => {
         kpi2Sub: isSingleWard ? `Deployed in ${currentSelectedWard?.zone}` : 'Command Staff & Inter-Agency Officers',
         kpi2Tag: `${attendanceRate}% Roster Attendance`,
         kpi3Title: 'Heatbreak Rotation',
-        kpi3Sub: `NDMA Shift Protocol (UTCI > 40°C • Current ${avgUtci}°C)`,
+        kpi3Sub: `HeatWave Shift Protocol (UTCI > 40°C • Current ${avgUtci}°C)`,
         kpi3Tag: '45m Work / 15m Shaded Rest',
         kpi4Title: 'Standby Reserves',
         kpi4Sub: isSingleWard
@@ -1198,7 +1198,7 @@ export const HumanResourcesPage: React.FC = () => {
         <div className="flex items-center space-x-2 shrink-0 self-start sm:self-auto pl-10 sm:pl-0">
           <span className="px-3 py-1 rounded-xl text-xs font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center space-x-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-            <span>OSHA & NDMA COMPLIANT</span>
+            <span>SAFETY & PROTOCOL COMPLIANT</span>
           </span>
         </div>
       </div>

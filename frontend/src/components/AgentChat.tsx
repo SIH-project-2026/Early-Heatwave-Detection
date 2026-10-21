@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { useHeatwave } from '../context/HeatwaveContext';
+import { useLanguage } from '../context/LanguageContext';
 import { runLangflowAgent } from '../services/langflowService';
 import { fetchLiveWeatherForCoords } from '../services/liveWeatherService';
 import {
@@ -267,19 +268,21 @@ export const AgentChat: React.FC = () => {
     setIsAgentChatOpen,
   } = useHeatwave();
 
+  const { language: portalLanguage, setLanguage: setPortalLanguage } = useLanguage();
+
   const [loading, setLoading] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [pinnedCoords, setPinnedCoords] = useState<[number, number]>(activeRegion.coordinates);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem('agent_chat_language');
-      if (saved && SUPPORTED_LANGUAGES.some((l) => l.code === saved)) {
-        return saved;
-      }
       const appLang = localStorage.getItem('app_language');
       if (appLang && SUPPORTED_LANGUAGES.some((l) => l.code === appLang)) {
         return appLang;
+      }
+      const saved = localStorage.getItem('agent_chat_language');
+      if (saved && SUPPORTED_LANGUAGES.some((l) => l.code === saved)) {
+        return saved;
       }
     } catch {
       // Ignore localStorage errors
@@ -289,11 +292,21 @@ export const AgentChat: React.FC = () => {
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(true);
 
+  // Sync selectedLanguage when portalLanguage changes
+  useEffect(() => {
+    if (portalLanguage && SUPPORTED_LANGUAGES.some((l) => l.code === portalLanguage)) {
+      setSelectedLanguage(portalLanguage);
+    }
+  }, [portalLanguage]);
+
   const handleSelectLanguage = (code: string) => {
     setSelectedLanguage(code);
     setIsLangMenuOpen(false);
     try {
       localStorage.setItem('agent_chat_language', code);
+      if (code !== 'auto' && code !== 'hinglish') {
+        setPortalLanguage(code as any);
+      }
     } catch {
       // Ignore localStorage errors
     }
@@ -547,7 +560,9 @@ export const AgentChat: React.FC = () => {
       const errorMsg: ChatMessage = {
         id: `msg-err-${Date.now()}`,
         sender: 'agent',
-        text: '⚠️ Mausam ki jankari prapt karne me asuvidha hui. Kripya punah prayas karein.',
+        text: selectedLanguage === 'hi'
+          ? '⚠️ मौसम की जानकारी प्राप्त करने में असुविधा हुई। कृपया पुनः प्रयास करें।'
+          : '⚠️ Mausam ki jankari prapt karne me asuvidha hui. Kripya punah prayas karein.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -692,14 +707,14 @@ export const AgentChat: React.FC = () => {
                 <div>
                   <div className="flex items-center space-x-2">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                      Real-Time Weather AI Assistant
+                      {selectedLanguage === 'hi' ? 'रीयल-टाइम मौसम एआई सहायक' : 'Real-Time Weather AI Assistant'}
                     </h3>
                     <span className="px-2 py-0.5 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      LIVE AGENT
+                      {selectedLanguage === 'hi' ? 'लाइव सहायक' : 'LIVE AGENT'}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 truncate max-w-[280px]">
-                    Global Satellite Telemetry & Thermal Safety
+                    {selectedLanguage === 'hi' ? 'ग्लोबल सैटेलाइट टेलीमेट्री एवं थर्मल सुरक्षा' : 'Global Satellite Telemetry & Thermal Safety'}
                   </p>
                 </div>
               </div>
@@ -858,7 +873,9 @@ export const AgentChat: React.FC = () => {
                 <div className="flex items-center space-x-3 text-sm sm:text-base text-rose-300 bg-rose-500/15 p-4 rounded-2xl border border-rose-500/25">
                   <RefreshCw className="w-5 h-5 animate-spin text-rose-400 shrink-0" />
                   <span className="font-mono text-sm sm:text-[15px] font-bold">
-                    Fetching live satellite observations & geocoding location...
+                    {selectedLanguage === 'hi'
+                      ? 'लाइव सैटेलाइट डेटा और मौसम जानकारी लोड हो रही है...'
+                      : 'Fetching live satellite observations & geocoding location...'}
                   </span>
                 </div>
               )}
@@ -920,10 +937,12 @@ export const AgentChat: React.FC = () => {
                     <Globe className="w-5 h-5 text-sky-400" />
                     <div>
                       <h4 className="text-sm font-bold text-white uppercase tracking-wide">
-                        Pick Weather Location on Map
+                        {selectedLanguage === 'hi' ? 'मानचित्र पर स्थान चुनें' : 'Pick Weather Location on Map'}
                       </h4>
                       <p className="text-[11px] text-slate-400">
-                        Click anywhere on the map to drop a pin
+                        {selectedLanguage === 'hi'
+                          ? 'पिन लगाने के लिए मानचित्र पर कहीं भी क्लिक करें'
+                          : 'Click anywhere on the map to drop a pin'}
                       </p>
                     </div>
                   </div>
@@ -956,7 +975,7 @@ export const AgentChat: React.FC = () => {
                     onClick={() => setIsMapPickerOpen(false)}
                     className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all cursor-pointer"
                   >
-                    Cancel
+                    {selectedLanguage === 'hi' ? 'रद्द करें' : 'Cancel'}
                   </button>
                   <button
                     type="button"
@@ -964,7 +983,7 @@ export const AgentChat: React.FC = () => {
                     className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs flex items-center space-x-2 shadow-lg shadow-rose-950/60 transition-all cursor-pointer hover:scale-[1.01] active:scale-95"
                   >
                     <Navigation className="w-4 h-4" />
-                    <span>Confirm & Get Live Weather</span>
+                    <span>{selectedLanguage === 'hi' ? 'स्थान चुनें और लाइव मौसम देखें' : 'Confirm & Get Live Weather'}</span>
                   </button>
                 </div>
               </div>

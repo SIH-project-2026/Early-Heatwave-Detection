@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useHeatwave } from '../context/HeatwaveContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { AlertCard } from '../components/alerts/AlertCard';
 import { AlertModal } from '../components/alerts/AlertModal';
 import { StatCard } from '../components/common/StatCard';
@@ -11,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 export const AlertsPage: React.FC = () => {
   const { alerts, wards, acknowledgeAlert, resolveAlert, setSelectedWard } = useHeatwave();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const roleType = user?.roleType || 'controller';
   const navigate = useNavigate();
 
@@ -48,7 +50,7 @@ export const AlertsPage: React.FC = () => {
       buttonIcon: <FileText className="w-4 h-4 shrink-0" />,
       stat1: { title: 'Active Public Alerts', value: activeCount, subtitle: 'Citizen advisories live', icon: <Bell className="w-5 h-5" />, accentColor: 'amber' as const, metaText: 'Public Advisory Active' },
       stat2: { title: 'High Danger Wards', value: severeCount, subtitle: 'WBGT > 32°C Risk Zones', icon: <ShieldAlert className="w-5 h-5" />, accentColor: 'red' as const, metaText: 'High Heat Morbidity' },
-      stat3: { title: 'Labor Ban Compliance', value: '98.2%', subtitle: '12-3 PM Heavy work stopped', icon: <CheckCircle2 className="w-5 h-5" />, accentColor: 'emerald' as const, metaText: 'NDMA Directive' },
+      stat3: { title: 'Labor Ban Compliance', value: '98.2%', subtitle: '12-3 PM Heavy work stopped', icon: <CheckCircle2 className="w-5 h-5" />, accentColor: 'emerald' as const, metaText: 'HeatWave Directive' },
       stat4: { title: 'Hospitals Notified', value: '3 Centers', subtitle: 'Heat ICU capacity alerted', icon: <Users className="w-5 h-5" />, accentColor: 'cyan' as const, metaText: 'Clinical Preparedness' },
     },
     field_lead: {
@@ -82,16 +84,16 @@ export const AlertsPage: React.FC = () => {
           <div className="flex items-center space-x-2.5 mb-2 flex-wrap gap-y-1">
             <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-widest uppercase border flex items-center space-x-1.5 shadow-sm ${roleMeta.badgeColor}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              <span>{roleMeta.badgeTitle}</span>
+              <span>{t(roleMeta.badgeTitle, roleMeta.badgeTitle)}</span>
             </span>
           </div>
 
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white tracking-tight flex items-center space-x-3">
             <Siren className="w-7 h-7 text-rose-500 animate-pulse shrink-0" />
-            <span>{roleMeta.title}</span>
+            <span>{t(roleMeta.title, roleMeta.title)}</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-2xl leading-relaxed">
-            {roleMeta.description}
+            {t(roleMeta.description, roleMeta.description)}
           </p>
         </div>
 
@@ -101,7 +103,7 @@ export const AlertsPage: React.FC = () => {
             className="px-5 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-semibold text-xs transition-all shadow-lg shadow-rose-600/30 hover:scale-[1.02] active:scale-[0.98] flex items-center space-x-2.5 cursor-pointer"
           >
             {roleMeta.buttonIcon}
-            <span className="whitespace-nowrap">{roleMeta.buttonLabel}</span>
+            <span className="whitespace-nowrap">{t(roleMeta.buttonLabel, roleMeta.buttonLabel)}</span>
           </button>
         </div>
       </div>
@@ -109,47 +111,47 @@ export const AlertsPage: React.FC = () => {
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title={roleMeta.stat1.title}
+          title={t(roleMeta.stat1.title, roleMeta.stat1.title)}
           value={roleMeta.stat1.value}
-          subtitle={roleMeta.stat1.subtitle}
+          subtitle={t(roleMeta.stat1.subtitle, roleMeta.stat1.subtitle)}
           icon={roleMeta.stat1.icon}
           accentColor={roleMeta.stat1.accentColor}
-          trend={{ value: 'ACTIVE', isNegative: false }}
+          trend={{ value: t('active', 'ACTIVE'), isNegative: false }}
           progress={activeCount > 0 ? 80 : 0}
-          metaText={roleMeta.stat1.metaText}
+          metaText={t(roleMeta.stat1.metaText, roleMeta.stat1.metaText)}
         />
 
         <StatCard
-          title={roleMeta.stat2.title}
+          title={t(roleMeta.stat2.title, roleMeta.stat2.title)}
           value={roleMeta.stat2.value}
-          subtitle={roleMeta.stat2.subtitle}
+          subtitle={t(roleMeta.stat2.subtitle, roleMeta.stat2.subtitle)}
           icon={roleMeta.stat2.icon}
           accentColor={roleMeta.stat2.accentColor}
-          trend={{ value: 'PRIORITY', isNegative: false }}
+          trend={{ value: t('priority', 'PRIORITY'), isNegative: false }}
           progress={severeCount > 0 ? 90 : 20}
-          metaText={roleMeta.stat2.metaText}
+          metaText={t(roleMeta.stat2.metaText, roleMeta.stat2.metaText)}
         />
 
         <StatCard
-          title={roleMeta.stat3.title}
+          title={t(roleMeta.stat3.title, roleMeta.stat3.title)}
           value={roleMeta.stat3.value}
-          subtitle={roleMeta.stat3.subtitle}
+          subtitle={t(roleMeta.stat3.subtitle, roleMeta.stat3.subtitle)}
           icon={roleMeta.stat3.icon}
           accentColor={roleMeta.stat3.accentColor}
-          trend={{ value: 'VERIFIED', isNegative: false }}
+          trend={{ value: t('verified', 'VERIFIED'), isNegative: false }}
           progress={100}
-          metaText={roleMeta.stat3.metaText}
+          metaText={t(roleMeta.stat3.metaText, roleMeta.stat3.metaText)}
         />
 
         <StatCard
-          title={roleMeta.stat4.title}
+          title={t(roleMeta.stat4.title, roleMeta.stat4.title)}
           value={roleMeta.stat4.value}
-          subtitle={roleMeta.stat4.subtitle}
+          subtitle={t(roleMeta.stat4.subtitle, roleMeta.stat4.subtitle)}
           icon={roleMeta.stat4.icon}
           accentColor={roleMeta.stat4.accentColor}
-          trend={{ value: 'ONLINE', isNegative: false }}
+          trend={{ value: t('online', 'ONLINE'), isNegative: false }}
           progress={95}
-          metaText={roleMeta.stat4.metaText}
+          metaText={t(roleMeta.stat4.metaText, roleMeta.stat4.metaText)}
         />
       </div>
 

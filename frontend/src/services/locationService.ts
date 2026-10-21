@@ -218,7 +218,7 @@ export function wardToLocationItem(ward: Ward): LocationItem {
       ? 'MODERATE'
       : 'ADEQUATE';
 
-  const riskLevel = calculateRiskLevel(liveUtci, liveWbgt, liveHvi);
+  const riskLevel = calculateRiskLevel(liveUtci, liveWbgt, liveHvi, ward.currentMetrics.tempC);
 
   const dynamicActions =
     riskLevel === 'SEVERE'
@@ -282,7 +282,7 @@ export function resourceToLocationItem(resource: EmergencyResource, currentWards
   const population = resource.coverageEstimate || (hostWard ? hostWard.population : 32100);
   const liveNdvi = 0.11;
 
-  const riskLevel = calculateRiskLevel(utci, wbgt, liveHvi);
+  const riskLevel = calculateRiskLevel(utci, wbgt, liveHvi, tempC);
 
   let markerType: 'WARD' | 'WATER_TANKER' | 'COOLING_CENTER' | 'ALERT' | 'AMBULANCE' | 'HOSPITAL' = 'COOLING_CENTER';
   let formattedName = resource.name;
@@ -359,7 +359,7 @@ export async function enrichLocationWithLiveWeather(location: LocationItem): Pro
   const live = await fetchLiveWeatherForCoords(lat, lng);
 
   const liveHvi = calculateHviFromTemp(live.apparentTempC);
-  const updatedRisk = calculateRiskLevel(live.apparentTempC, live.wbgtIndex, liveHvi);
+  const updatedRisk = calculateRiskLevel(live.apparentTempC, live.wbgtIndex, liveHvi, live.temperatureC);
 
   const liveNdvi = Number(Math.max(0.08, Math.min(0.65, 0.45 - (live.apparentTempC - 35) * 0.02)).toFixed(2));
   const ndviStatus = liveNdvi < 0.2 ? 'CRITICAL LOW' : liveNdvi < 0.35 ? 'LOW' : 'ADEQUATE';

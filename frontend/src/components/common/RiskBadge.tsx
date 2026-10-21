@@ -1,6 +1,7 @@
 import React from 'react';
 import type { RiskLevel } from '../../types/risk';
 import { getRiskConfig } from '../../utils/riskUtils';
+import { useLanguage } from '../../context/LanguageContext';
 import { ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface RiskBadgeProps {
@@ -16,6 +17,7 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({
   size = 'md',
   className = '',
 }) => {
+  const { t } = useLanguage();
   const config = getRiskConfig(level);
 
   const getIcon = () => {
@@ -45,7 +47,9 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({
       }}
     >
       {showIcon && <span className="shrink-0">{getIcon()}</span>}
-      <span className="uppercase tracking-wider whitespace-nowrap shrink-0">{config.label}</span>
+      <span className="uppercase tracking-wider whitespace-nowrap shrink-0">
+        {t(level.toLowerCase() + 'Risk', config.label)}
+      </span>
     </span>
   );
 };

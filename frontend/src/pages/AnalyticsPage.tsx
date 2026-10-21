@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useHeatwave } from '../context/HeatwaveContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { weatherService } from '../services/weatherService';
 import type { ForecastTimeSeriesPoint } from '../types/forecast';
 import { UTCIChart } from '../components/charts/UTCIChart';
@@ -28,6 +29,7 @@ import { formatNumber, formatTemp, formatHvi } from '../utils/formatters';
 
 export const AnalyticsPage: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const roleType = user?.roleType || 'controller';
 
   const { wards, currentStep, activeRegion } = useHeatwave();
@@ -103,21 +105,21 @@ export const AnalyticsPage: React.FC = () => {
           <div className="flex items-center space-x-2.5 mb-2">
             <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-widest uppercase bg-[#13141a] border flex items-center space-x-1.5 shadow-sm ${roleMeta.badgeColor}`}>
               <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${roleMeta.dotColor}`} />
-              <span>{roleMeta.badge}</span>
+              <span>{t(roleMeta.badge, roleMeta.badge)}</span>
             </span>
           </div>
 
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug">
-            {roleMeta.title}
+            {t(roleMeta.title, roleMeta.title)}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-            {roleMeta.subtitle}
+            {t(roleMeta.subtitle, roleMeta.subtitle)}
           </p>
         </div>
 
         <div className="relative z-10 flex items-center space-x-2 text-xs text-slate-300 bg-[#13141a] px-3.5 py-2 rounded-2xl border border-white/[0.06] font-mono shadow-md shrink-0 self-start md:self-auto">
           <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>Biometeorology Calibrated</span>
+          <span>{t('biometeorologyCalibrated', 'Biometeorology Calibrated')}</span>
         </div>
       </div>
 

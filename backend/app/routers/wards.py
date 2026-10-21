@@ -78,6 +78,7 @@ async def get_all_wards(
         w_utci = calculate_heat_index(w_temp, live_hum)
         w_wbgt = round(w_temp * 0.74, 1)
         w_risk = get_risk_level(w_temp, live_hum)
+        is_active = w_risk in ["SEVERE", "HIGH", "MODERATE"]
 
         w["currentMetrics"] = {
             "tempC": w_temp,
@@ -85,7 +86,9 @@ async def get_all_wards(
             "wbgt": w_wbgt,
             "humidity": round(live_hum),
             "heatIndex": w_utci,
-            "riskLevel": w_risk
+            "riskLevel": w_risk,
+            "isActive": is_active,
+            "status": "ACTIVE" if is_active else "INACTIVE"
         }
 
     return wards
@@ -141,6 +144,7 @@ async def get_ward_geojson(
             adjusted_temp = round(base_temp + hour_factor, 1)
             adjusted_utci = calculate_heat_index(adjusted_temp, live_hum)
             adjusted_risk = get_risk_level(adjusted_temp, live_hum)
+            is_active = adjusted_risk in ["SEVERE", "HIGH", "MODERATE"]
 
             polygon_coords = create_polygon_coords(centroid[0], centroid[1], scale=0.016, seed=idx)
             idx += 1
@@ -156,6 +160,8 @@ async def get_ward_geojson(
                     "population": ward.get("population", 50000),
                     "vulnerability_score": ward.get("vulnerability", {}).get("hvi", 0.75),
                     "risk_level": adjusted_risk,
+                    "is_active": is_active,
+                    "status": "ACTIVE" if is_active else "INACTIVE",
                     "temperature": adjusted_temp,
                     "utci": adjusted_utci,
                     "hour": hour

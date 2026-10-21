@@ -52,6 +52,7 @@ const STORAGE_KEYS = {
   REGION: 'heatwave_active_region',
   WARD_ID: 'heatwave_selected_ward_id',
   LOCATION: 'heatwave_selected_location',
+  RISK_FILTER: 'heatwave_risk_filter',
 };
 
 function sanitizeRegion(region: MunicipalRegion): MunicipalRegion {
@@ -138,6 +139,25 @@ function getSavedLocation(): LocationItem | null {
   return null;
 }
 
+function getSavedRiskFilter(): RiskLevel | 'ALL' {
+  try {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlFilter = params.get('risk') || params.get('filter');
+      if (urlFilter && ['ALL', 'SEVERE', 'HIGH', 'MODERATE', 'LOW'].includes(urlFilter.toUpperCase())) {
+        return urlFilter.toUpperCase() as RiskLevel | 'ALL';
+      }
+    }
+    const saved = localStorage.getItem(STORAGE_KEYS.RISK_FILTER);
+    if (saved && ['ALL', 'SEVERE', 'HIGH', 'MODERATE', 'LOW'].includes(saved)) {
+      return saved as RiskLevel | 'ALL';
+    }
+  } catch (err) {
+    console.warn('Could not read saved risk filter from storage:', err);
+  }
+  return 'ALL';
+}
+
 function updateUrlParams(regionId?: string, wardCodeOrId?: string | null) {
   if (typeof window === 'undefined') return;
   try {
@@ -164,7 +184,23 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [forecastSteps, setForecastSteps] = useState<ForecastStep[]>([]);
   const [resources, setResources] = useState<EmergencyResource[]>([]);
   const [alerts, setAlerts] = useState<HeatAlert[]>([]);
-  const [riskFilter, setRiskFilter] = useState<RiskLevel | 'ALL'>('ALL');
+  const [riskFilter, setRiskFilterState] = useState<RiskLevel | 'ALL'>(getSavedRiskFilter);
+
+  const setRiskFilter = useCallback((filter: RiskLevel | 'ALL') => {
+    setRiskFilterState(filter);
+    try {
+      localStorage.setItem(STORAGE_KEYS.RISK_FILTER, filter);
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        if (filter === 'ALL') {
+          url.searchParams.delete('risk');
+        } else {
+          url.searchParams.set('risk', filter);
+        }
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {}
+  }, []);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);

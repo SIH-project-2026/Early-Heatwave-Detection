@@ -78,9 +78,11 @@ const DEFAULT_SETTINGS: UserSettingsState = {
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage, isHindi, t } = useLanguage();
   const { activeRegion, setActiveRegion } = useHeatwave();
   const { theme, setTheme } = useTheme();
+
+  const [languageToast, setLanguageToast] = useState<string | null>(null);
 
   // Load user settings from localStorage or defaults
   const [settings, setSettings] = useState<UserSettingsState>(() => {
@@ -216,7 +218,7 @@ export const SettingsPage: React.FC = () => {
       <div className="p-5 sm:p-6 rounded-3xl bg-[#181920] border border-white/[0.08] shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 card-highlight-rim">
         <div className="flex items-center space-x-4 min-w-0">
           <div className={`w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br ${user?.avatarGradient || 'from-sky-600/30 to-indigo-600/30'} border border-sky-500/40 text-sky-300 font-bold flex items-center justify-center font-mono text-base sm:text-lg shadow-md shrink-0`}>
-            {user?.initials || 'DC'}
+            {user?.initials || 'HW'}
           </div>
           <div className="min-w-0">
             <div className="flex items-center space-x-2">
@@ -233,7 +235,7 @@ export const SettingsPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-mono mt-1">
               <span>Officer ID: {user?.officerId || 'MUNI-CTRL-0982'}</span>
               <span>•</span>
-              <span>{user?.email || 'dana.castellanos@meridian-erp.gov.in'}</span>
+              <span>{user?.email || 'dana.castellanos@heatwave.gov.in'}</span>
               <span>•</span>
               <span className="text-sky-400 font-semibold">Shift: {user?.shift || 'Alpha Duty (06:00 - 18:00)'}</span>
             </div>
@@ -570,26 +572,40 @@ export const SettingsPage: React.FC = () => {
           <div className="flex items-center space-x-2.5 min-w-0">
             <Languages className="w-5 h-5 text-indigo-400 shrink-0" />
             <h2 className="text-sm sm:text-base font-bold text-white uppercase tracking-wider truncate">
-              Language & Municipal Region
+              {t('languageAndRegion', 'Language & Municipal Region')}
             </h2>
           </div>
+          {languageToast && (
+            <span className="px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center space-x-1.5 animate-in fade-in zoom-in-95">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{languageToast}</span>
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs sm:text-sm">
           {/* Language Selector */}
           <div className="bg-[#13141a] p-5 sm:p-6 rounded-2xl border border-white/[0.06] space-y-3">
-            <label className="font-bold text-white block text-sm sm:text-base">Portal Display Language</label>
+            <label className="font-bold text-white block text-sm sm:text-base">
+              {t('portalDisplayLanguage', 'Portal Display Language')}
+            </label>
             <span className="text-slate-300 text-xs sm:text-sm block">
-              Multi-lingual support across alerts, charts, navigation, and medical response.
+              {t('multiLingualSupport', 'Multi-lingual support across alerts, charts, navigation, and medical response.')}
             </span>
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value as LanguageCode)}
-              className="w-full bg-[#181920] border border-white/[0.08] rounded-2xl p-3.5 text-sm text-white font-semibold focus:outline-none focus:border-sky-500/60 focus:bg-[#1f202a] transition-all cursor-pointer"
+              onChange={(e) => {
+                const newCode = e.target.value as LanguageCode;
+                setLanguage(newCode);
+                const matched = LANGUAGES.find((l) => l.code === newCode);
+                setLanguageToast(`भाषा सफलतापूर्वक अपडेट की गई: ${matched?.nativeName || newCode}`);
+                setTimeout(() => setLanguageToast(null), 3500);
+              }}
+              className="w-full bg-[#181920] border border-white/[0.08] rounded-2xl p-3.5 text-sm text-white font-semibold focus:outline-none focus:border-amber-500/60 focus:bg-[#1f202a] transition-all cursor-pointer ring-1 ring-white/[0.05]"
             >
               {LANGUAGES.map((lang) => (
                 <option key={lang.code} value={lang.code} className="bg-[#181920] text-white">
-                  {lang.nativeName} ({lang.name})
+                  {lang.flag} {lang.nativeName} ({lang.name})
                 </option>
               ))}
             </select>

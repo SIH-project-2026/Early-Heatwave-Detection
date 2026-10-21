@@ -3,7 +3,6 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useHeatwave } from '../../context/HeatwaveContext';
 import { useAuth } from '../../context/AuthContext';
 import {
-  Globe,
   Search,
   LayoutDashboard,
   Sun,
@@ -20,6 +19,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { LanguageSelector } from '../common/LanguageSelector';
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -72,29 +72,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const roleNavConfig = {
     controller: {
-      brandSub: 'NDMA APEX COMMAND',
-      clearanceChip: 'NDMA L5',
+      brandSub: 'EARLY WARNING SYSTEM',
+      clearanceChip: '',
       badgeColor: 'border-amber-500/40 text-amber-400 bg-amber-500/10',
-      rootLabel: 'NDMA Command Deck',
-      section1Title: 'NATIONAL OPERATIONS',
-      section2Title: 'NDMA ADMINISTRATION',
+      rootLabel: t('commandDeck', 'Command Deck'),
+      section1Title: t('nationalOperations', 'NATIONAL OPERATIONS'),
+      section2Title: t('systemAdministration', 'SYSTEM ADMINISTRATION'),
       operationsNav: [
         {
-          name: 'Thermal Grid & Heatwave Map',
+          name: t('thermalGridMap', 'Thermal Grid & Heatwave Map'),
           path: '/map',
           icon: Sun,
           iconColor: 'group-hover:text-amber-400',
           badge: null,
         },
         {
-          name: 'Supply Chain & Fleet',
+          name: t('supplyChainFleet', 'Supply Chain & Fleet'),
           path: '/resources',
           icon: Truck,
           iconColor: 'group-hover:text-sky-400',
           badge: null,
         },
         {
-          name: 'National Siren & Alarms',
+          name: t('nationalSirenAlarms', 'National Siren & Alarms'),
           path: '/alerts',
           icon: Siren,
           iconColor: 'text-rose-400 group-hover:text-rose-300',
@@ -104,14 +104,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
       systemNav: [
         {
-          name: 'Disaster Relief Budget',
+          name: t('disasterReliefBudget', 'Disaster Relief Budget'),
           path: '/analytics',
           icon: BarChart3,
           iconColor: 'group-hover:text-sky-400',
           badge: null,
         },
         {
-          name: 'Relief Corps & Personnel',
+          name: t('reliefCorpsPersonnel', 'Relief Corps & Personnel'),
           path: '/hr',
           icon: Users,
           iconColor: 'group-hover:text-indigo-400',
@@ -119,38 +119,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
       ],
       telemetry: {
-        line1Label: 'National Siren Grid',
+        line1Label: t('nationalSirenGrid', 'National Siren Grid'),
         line1Value: 'ARMED (24 Wards)',
         line1Color: 'text-emerald-400',
-        line2Label: 'NDMA Early Warning Bridge',
-        line2Value: 'Online & Synced',
+        line2Label: t('earlyWarningBridge', 'NDMA Early Warning Bridge'),
+        line2Value: t('onlineAndSynced', 'Online & Synced'),
         line2Color: 'text-sky-400',
       },
     },
     disaster_officer: {
-      brandSub: 'URBAN RESILIENCE CELL',
+      brandSub: t('urbanResilienceCell', 'URBAN RESILIENCE CELL'),
       clearanceChip: 'MUNI L3',
       badgeColor: 'border-amber-500/40 text-amber-400 bg-amber-500/10',
-      rootLabel: 'Municipal Heat Deck',
-      section1Title: 'URBAN RESILIENCE & HEALTH',
-      section2Title: 'PUBLIC HEALTH & IMPACT',
+      rootLabel: t('commandDeck', 'Municipal Heat Deck'),
+      section1Title: t('nationalOperations', 'URBAN RESILIENCE & HEALTH'),
+      section2Title: t('ndmaAdministration', 'PUBLIC HEALTH & IMPACT'),
       operationsNav: [
         {
-          name: 'Ward Risk & Vulnerability',
+          name: t('wardRiskVulnerability', 'Ward Risk & Vulnerability'),
           path: '/map',
           icon: Sun,
           iconColor: 'group-hover:text-amber-400',
           badge: null,
         },
         {
-          name: 'Cooling Shelters & Kiosks',
+          name: t('coolingSheltersKiosks', 'Cooling Shelters & Kiosks'),
           path: '/resources',
           icon: Truck,
           iconColor: 'group-hover:text-sky-400',
           badge: null,
         },
         {
-          name: 'Citizen Heat Advisories',
+          name: t('nationalSirenAlarms', 'Citizen Heat Advisories'),
           path: '/alerts',
           icon: Siren,
           iconColor: 'text-rose-400 group-hover:text-rose-300',
@@ -160,14 +160,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
       systemNav: [
         {
-          name: 'Heat Morbidity & ICUs',
+          name: t('disasterReliefBudget', 'Heat Morbidity & ICUs'),
           path: '/analytics',
           icon: BarChart3,
           iconColor: 'group-hover:text-sky-400',
           badge: null,
         },
         {
-          name: 'Healthcare Relief Staff',
+          name: t('reliefCorpsPersonnel', 'Healthcare Relief Staff'),
           path: '/hr',
           icon: Users,
           iconColor: 'group-hover:text-indigo-400',
@@ -192,21 +192,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       section2Title: 'GROUND CREW & LOGISTICS',
       operationsNav: [
         {
-          name: 'GPS Hotspots & Routing',
+          name: t('thermalGridMap', 'GPS Hotspots & Routing'),
           path: '/map',
           icon: Sun,
           iconColor: 'group-hover:text-amber-400',
           badge: null,
         },
         {
-          name: 'Water Tanker Fleet Units',
+          name: t('supplyChainFleet', 'Water Tanker Fleet Units'),
           path: '/resources',
           icon: Truck,
           iconColor: 'group-hover:text-sky-400',
           badge: null,
         },
         {
-          name: 'Emergency SOS Dispatches',
+          name: t('nationalSirenAlarms', 'Emergency SOS Dispatches'),
           path: '/alerts',
           icon: Siren,
           iconColor: 'text-rose-400 group-hover:text-rose-300',
@@ -216,14 +216,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
       systemNav: [
         {
-          name: 'Fleet Fuel & Refill Logs',
+          name: t('disasterReliefBudget', 'Fleet Fuel & Refill Logs'),
           path: '/analytics',
           icon: BarChart3,
           iconColor: 'group-hover:text-sky-400',
           badge: null,
         },
         {
-          name: 'First Responder Rosters',
+          name: t('reliefCorpsPersonnel', 'First Responder Rosters'),
           path: '/hr',
           icon: Users,
           iconColor: 'group-hover:text-indigo-400',
@@ -251,44 +251,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {mobileOpen && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm lg:hidden transition-opacity"
         />
       )}
 
       {/* Main Sidebar Aside Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 bg-black border-r border-white/[0.06] flex flex-col justify-between transition-[width,transform] duration-250 ease-out select-none font-sans shadow-2xl ${
-          isCollapsed ? 'w-16' : 'w-64'
+        className={`fixed top-0 bottom-0 left-0 z-[60] lg:z-50 bg-black border-r border-white/[0.06] flex flex-col justify-between transition-[width,transform] duration-250 ease-out select-none font-sans shadow-2xl ${
+          isCollapsed ? 'w-16' : 'w-64 lg:w-72 xl:w-72'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
-        {/* Top Brand Header (Matches Meridian Logo Layout) */}
+        {/* Top Brand Header */}
         <div className="h-18 px-4 flex items-center justify-between border-b border-white/[0.06] shrink-0 min-h-[72px]">
           <div
             onClick={() => navigate('/')}
             className="flex items-center space-x-3 cursor-pointer min-w-0"
-            title="Meridian ERP Early Warning"
+            title="HeatWaveEarlyWarning"
           >
-            {/* Rounded Globe / Brand Icon */}
-            <div className="w-9 h-9 rounded-xl bg-[#181920] border border-white/[0.08] flex items-center justify-center text-sky-400 shadow-sm card-highlight-rim shrink-0">
-              <Globe className="w-5 h-5" />
+            {/* Heatwave Brand Logo */}
+            <div className="w-10 h-10 rounded-xl bg-[#181920] border border-white/[0.08] flex items-center justify-center shadow-sm card-highlight-rim shrink-0 overflow-hidden p-0.5">
+              <img
+                src="/logo.png"
+                alt="HeatWave Early Warning"
+                className="w-full h-full object-contain rounded-lg"
+              />
             </div>
 
             {/* Brand Title & Role-Aware Subtitle */}
             {!isCollapsed && (
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-2">
-                  <h1 className="text-sm sm:text-base font-bold text-white tracking-tight font-sans leading-none truncate">
-                    Meridian
+                  <h1 className="text-sm sm:text-base font-bold text-white tracking-tight font-sans leading-none">
+                    HeatWave
                   </h1>
-                  <span
-                    className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-medium border ${currentRoleNav.badgeColor}`}
-                  >
-                    {currentRoleNav.clearanceChip}
-                  </span>
                 </div>
-                <p className="text-[9px] font-semibold font-mono tracking-[0.12em] text-slate-400 uppercase mt-1 truncate">
-                  {currentRoleNav.brandSub}
-                </p>
               </div>
             )}
           </div>
@@ -382,7 +378,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       />
                       {!isCollapsed && (
-                        <span className="truncate tracking-tight font-sans">
+                        <span className="leading-snug tracking-tight font-sans text-xs sm:text-[13px] line-clamp-2 break-words">
                           {currentRoleNav.rootLabel}
                         </span>
                       )}
@@ -443,7 +439,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               }`}
                             />
                             {!isCollapsed && (
-                              <span className="truncate tracking-tight font-sans">
+                              <span className="leading-snug tracking-tight font-sans text-xs sm:text-[13px] line-clamp-2 break-words">
                                 {item.name}
                               </span>
                             )}
@@ -521,7 +517,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               }`}
                             />
                             {!isCollapsed && (
-                              <span className="truncate tracking-tight font-sans">
+                              <span className="leading-snug tracking-tight font-sans text-xs sm:text-[13px] line-clamp-2 break-words">
                                 {item.name}
                               </span>
                             )}
@@ -559,8 +555,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className="flex items-center space-x-3 min-w-0">
                     <Bot className="w-4 h-4 text-sky-400 shrink-0 group-hover:scale-110 transition-transform" />
                     {!isCollapsed && (
-                      <span className="truncate tracking-tight font-sans font-medium">
-                        Ask AI Assistant
+                      <span className="leading-snug tracking-tight font-sans font-medium text-xs sm:text-[13px] line-clamp-2 break-words">
+                        {t('askAiAgent', 'Ask AI Assistant')}
                       </span>
                     )}
                   </div>
@@ -571,7 +567,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                   {isCollapsed && (
                     <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 hidden group-hover:flex items-center px-3 py-1.5 text-xs font-bold text-white bg-[#181920] border border-white/[0.08] rounded-xl shadow-2xl whitespace-nowrap pointer-events-none">
-                      Ask AI Assistant
+                      {t('askAiAgent', 'Ask AI Assistant')}
                     </div>
                   )}
                 </button>
@@ -580,8 +576,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
+        {/* Sidebar Language Switcher */}
+        {!isCollapsed && (
+          <div className="px-3 pb-2 shrink-0">
+            <LanguageSelector variant="sidebar" />
+          </div>
+        )}
+
         {/* BOTTOM USER PROFILE CARD (Exact "Dana Castellanos / Operations Controller" Layout) */}
-        <div className="p-3 border-t border-white/[0.06] bg-black shrink-0">
+        <div className="p-3 border-t border-white/[0.06] shrink-0">
           <div
             onClick={() => {
               navigate('/settings');
@@ -596,7 +599,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'bg-[#181920] text-white border-white/[0.08] shadow-md ring-1 ring-sky-400/40'
                 : ''
             }`}
-            title="User Profile & System Preferences"
+            title={t('stationSettings', 'Station Settings')}
           >
             {/* Active Left Indicator Strip when on /settings */}
             {location.pathname === '/settings' && (
@@ -605,7 +608,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Avatar Squircle with Dynamic Initials */}
             <div className={`w-8.5 h-8.5 rounded-xl bg-gradient-to-br ${user?.avatarGradient || 'from-amber-500 via-sky-600 to-indigo-600'} border border-amber-500/40 text-amber-300 font-bold flex items-center justify-center font-mono text-xs shadow-sm shrink-0`}>
-              {user?.initials || 'NDMA'}
+              {user?.initials || 'HW'}
             </div>
 
             {/* Name, Role & Status */}
@@ -616,10 +619,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     location.pathname === '/settings' ? 'text-sky-300' : 'text-white group-hover:text-sky-300'
                   }`}
                 >
-                  {user?.name || 'National Disaster Management Authority'}
+                  {user?.name || 'HeatWave Commander'}
                 </h4>
                 <p className="text-[10px] text-slate-400 truncate font-normal">
-                  {user?.role || 'NDMA Operations Commander'}
+                  {user?.role || 'Operations Commander'}
                 </p>
               </div>
             )}
@@ -634,7 +637,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     navigate('/login');
                   }}
                   className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
-                  title="Sign Out to Login Portal"
+                  title={t('signOutLockConsole', 'Sign Out / Lock Console')}
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -649,8 +652,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Tooltip in Collapsed Mode */}
             {isCollapsed && (
               <div className="absolute left-full ml-3 bottom-3 z-50 hidden group-hover:flex flex-col px-3 py-2 text-xs font-bold text-white bg-[#181920] border border-white/[0.08] rounded-xl shadow-2xl whitespace-nowrap pointer-events-none">
-                <span>{user?.name || 'National Disaster Management Authority'}</span>
-                <span className="text-[10px] text-slate-400 font-normal">{user?.role || 'NDMA Operations Commander'}</span>
+                <span>{user?.name || 'HeatWave Commander'}</span>
+                <span className="text-[10px] text-slate-400 font-normal">{user?.role || 'Operations Commander'}</span>
               </div>
             )}
           </div>

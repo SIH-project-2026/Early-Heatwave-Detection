@@ -23,7 +23,7 @@ const QUERY_STOPWORDS = new Set([
   'heat', 'heatwave', 'humidity', 'wind', 'kya', 'kiya', 'kaisa', 'kaise', 'hai', 'he',
   'ho', 'hoga', 'hogi', 'hobe', 'ka', 'ke', 'ki', 'ko', 'me', 'mein', 'par', 'se',
   'aam', 'taaza', 'haal', 'batao', 'bataiye', 'kitna', 'kitni', 'taapmaan', 'garmi',
-  'mausam', 'baarish', 'loo', 'abhi', 'aaj', 'kal', 'aage', 'yahan', 'wahan', 'ki',
+  'mausam', 'baarish', 'loo', 'abhi', 'aaj', 'kal', 'aage', 'yahan', 'wahan',
   'kemon', 'hobo', 'aaji', 'kali', 'boroxun', 'gorom', 'about', 'status', 'update',
   'show', 'kaha', 'kahan', 'where', 'check', 'give', 'detail', 'details',
   'please', 'can', 'you', 'bhai', 'ji', 'sir', 'dekh', 'dekhein', 'karo', 'bataye',
@@ -31,7 +31,12 @@ const QUERY_STOPWORDS = new Set([
   'paani', 'number', 'helpline', 'precaution', 'safe', 'bachav', 'karna', 'chahiye',
   'kenkuwa', 'kenekuwa', 'botor', 'bator', 'ase', 'hoi', 'nki', 'amar', 'apunar',
   'kuch', 'bhi', 'puchu', 'pucho', 'lekin', 'magar', 'ye', 'yeh', 'woh', 'so', 'toh',
-  'raha', 'rahi', 'rahe', 'rahega', 'rahegi', 'lag', 'laga', 'lagi', 'lagta', 'mang', 'mangta'
+  'raha', 'rahi', 'rahe', 'rahega', 'rahegi', 'lag', 'laga', 'lagi', 'lagta', 'mang', 'mangta',
+  // Hindi Devanagari Stopwords
+  'का', 'के', 'की', 'को', 'में', 'पर', 'से', 'है', 'हैं', 'था', 'थी', 'थे',
+  'होगा', 'होगी', 'होंगे', 'मौसम', 'कैसा', 'कैसी', 'कितना', 'कितनी',
+  'तापमान', 'गर्मी', 'लू', 'बारिश', 'आज', 'कल', 'बताओ', 'बताएं', 'दिखाओ',
+  'चेक', 'करो', 'क्या', 'स्थान', 'शहर', 'हाल', 'नमस्ते', 'प्रणाम', 'नमस्कार',
 ]);
 
 const CITY_ALIASES: Record<string, string> = {
@@ -48,11 +53,46 @@ const CITY_ALIASES: Record<string, string> = {
   sona: 'Sohna',
   jaypur: 'Jaipur',
   amdavad: 'Ahmedabad',
+  // Hindi Devanagari Mappings
+  'सोहना': 'Sohna',
+  'दिल्ली': 'Delhi',
+  'नई दिल्ली': 'New Delhi',
+  'मुंबई': 'Mumbai',
+  'बंबई': 'Mumbai',
+  'जयपुर': 'Jaipur',
+  'कोलकाता': 'Kolkata',
+  'गुवाहाटी': 'Guwahati',
+  'अहमदाबाद': 'Ahmedabad',
+  'पुणे': 'Pune',
+  'लखनऊ': 'Lucknow',
+  'पटना': 'Patna',
+  'चंडीगढ़': 'Chandigarh',
+  'इंदौर': 'Indore',
+  'भोपाल': 'Bhopal',
+  'नागपुर': 'Nagpur',
+  'चेन्नई': 'Chennai',
+  'बेंगलुरु': 'Bengaluru',
+  'बेंगलोर': 'Bengaluru',
+  'हैदराबाद': 'Hyderabad',
+  'वाराणसी': 'Varanasi',
+  'आगरा': 'Agra',
+  'कानपुर': 'Kanpur',
+  'सूरत': 'Surat',
+  'नोएडा': 'Noida',
+  'गुरुग्राम': 'Gurugram',
+  'गुड़गांव': 'Gurugram',
+  'फरीदाबाद': 'Faridabad',
+  'मेरठ': 'Meerut',
 };
 
 function extractCandidatePlace(input: string): string {
-  const clean = input.toLowerCase().replace(/[^\w\s]/g, ' ');
-  const tokens = clean.split(/\s+/).filter((t) => t && !QUERY_STOPWORDS.has(t) && t.length > 1 && isNaN(Number(t)));
+  // Preserve ASCII words AND Devanagari (\u0900-\u097F) words
+  const clean = input.toLowerCase().replace(/[^\w\s\u0900-\u097F]/g, ' ');
+  const tokens = clean
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t && !QUERY_STOPWORDS.has(t) && t.length > 1 && isNaN(Number(t)));
+
   if (tokens.length === 0) return '';
   const rawCandidate = tokens.join(' ').trim();
   if (CITY_ALIASES[rawCandidate]) return CITY_ALIASES[rawCandidate];
@@ -110,7 +150,7 @@ export async function runLangflowAgent(
       }
     }
   } catch (backendErr: any) {
-    console.warn('FastAPI /api/agent/chat note, switching to resilient thermal intelligence:', backendErr.message);
+    console.warn('FastAPI /api/agent/chat note, switching to resilient thermal intelligence:', backendErr?.message);
   }
 
   // 2. Try LangFlow Pipeline endpoint if configured
@@ -148,7 +188,11 @@ export async function runLangflowAgent(
 
   // 3. Resilient Client-Side Geocoding & Open-Meteo Telemetry Engine
   const q = inputValue.toLowerCase().trim();
-  const isHindi = ['kya', 'kiya', 'kaisa', 'kaise', 'hai', 'he', 'hoga', 'mausam', 'taapmaan', 'garmi', 'baarish', 'loo', 'aaj', 'kal', 'batao'].some((k) => q.includes(k));
+  const isDevanagari = /[\u0900-\u097F]/.test(inputValue);
+  const isHindiLang = language === 'hi' || language === 'hinglish';
+  const hasHinglishWords = ['kya', 'kiya', 'kaisa', 'kaise', 'hai', 'he', 'hoga', 'mausam', 'taapmaan', 'garmi', 'baarish', 'loo', 'aaj', 'kal', 'batao', 'namaste', 'kaun'].some((k) => q.includes(k));
+  const isHindi = isDevanagari || isHindiLang || hasHinglishWords;
+  const usePureHindi = language === 'hi' || isDevanagari;
 
   // A. Check for coordinates in prompt (from map pin selection)
   const coords = extractCoordinates(inputValue);
@@ -157,7 +201,22 @@ export async function runLangflowAgent(
     try {
       const live = await fetchLiveWeatherForCoords(lat, lng, label);
       const isHeatwave = live.temperatureC >= 40 || live.apparentTempC >= 44;
-      if (isHindi) {
+      if (usePureHindi) {
+        return {
+          reply: `📍 **मानचित्र पर चयनित स्थान का ताज़ा मौसम (${label})**
+
+आपके चयनित स्थान का रीयल-टाइम उपग्रह मौसम डेटा:
+
+• 🌡️ **वर्तमान तापमान**: **${live.temperatureC}°C** (${live.conditionText}, महसूस होने वाला तापमान: **${live.apparentTempC}°C**)
+• 💧 **हवा में नमी (आर्द्रता)**: **${live.humidity}%**
+• 💨 **हवा की गति**: **${live.windSpeed} किमी/घंटा (${live.windDirection})**
+• 🌧️ **बारिश की संभावना**: **${live.precipitationProbability}%**
+• ☀️ **हीटवेव (लू) स्थिति**: ${isHeatwave ? '⚠️ **गंभीर लू अलर्ट (सतर्क रहें)**' : '✅ **सामान्य / सुरक्षित** — लू का खतरा नहीं है'}
+
+💡 **परामर्श**: पर्याप्त पानी पिएं और दोपहर की सीधी धूप से बचें।`,
+          hasMapAction: false,
+        };
+      } else if (isHindi) {
         return {
           reply: `📍 **Map Par Chuni Gayi Location Ka Taaza Haal (${label})**
 
@@ -191,7 +250,7 @@ Real-time satellite observation for pinned coordinates:
     } catch {}
   }
 
-  // B. Check for candidate place in prompt (e.g. 'sohna', 'delhi', 'mumbai', 'paris')
+  // B. Check for candidate place in prompt (e.g. 'sohna', 'सोहना', 'delhi', 'दिल्ली')
   const candidate = extractCandidatePlace(inputValue);
   if (candidate && candidate.length >= 2) {
     try {
@@ -207,7 +266,22 @@ Real-time satellite observation for pinned coordinates:
           const live = await fetchLiveWeatherForCoords(top.latitude, top.longitude, displayName);
           const isHeatwave = live.temperatureC >= 40 || live.apparentTempC >= 44;
 
-          if (isHindi) {
+          if (usePureHindi) {
+            return {
+              reply: `🌤️ **${displayName} का ताज़ा मौसम विवरण**
+
+उपग्रह से प्राप्त **${top.name}** की रीयल-टाइम मौसम स्थिति:
+
+• 🌡️ **वर्तमान तापमान**: **${live.temperatureC}°C** (${live.conditionText}, महसूस होने वाला तापमान: **${live.apparentTempC}°C**)
+• 💧 **हवा में नमी (आर्द्रता)**: **${live.humidity}%**
+• 💨 **हवा की गति**: **${live.windSpeed} किमी/घंटा (${live.windDirection})**
+• 🌧️ **बारिश की संभावना**: **${live.precipitationProbability}%**
+• ☀️ **हीटवेव (लू) की स्थिति**: ${isHeatwave ? '⚠️ **लू और अत्यधिक गर्मी का असर है! सावधानी बरतें।**' : '✅ **सामान्य / सुरक्षित** — फिलहाल लू का कोई खतरा नहीं है।'}
+
+💡 **स्वास्थ्य परामर्श**: सीधी धूप से बचें, ढीले सूती कपड़े पहनें और पर्याप्त मात्रा में पानी या ओआरएस पीते रहें।`,
+              hasMapAction: false,
+            };
+          } else if (isHindi) {
             return {
               reply: `🌤️ **${displayName} Ka Taaza Mausam**
 
@@ -243,9 +317,47 @@ Real-time satellite observation for **${top.name}**:
     } catch {}
   }
 
-  // C. Active region fallback for general queries (never demand location!)
+  // C. Common Heatstroke / ORS / Cooling / Hospital Guidance
+  if (q.includes('ors') || q.includes('ओआरएस') || q.includes('ghol')) {
+    if (usePureHindi) {
+      return {
+        reply: `💧 **घर पर ओआरएस (ORS) घोल बनाने की मानक विधि**
 
-  // C. Active region fallback for general queries
+WHO एवं स्वास्थ्य मंत्रालय के अनुसार:
+
+1. **1 लीटर** साफ, उबला और ठंडा किया हुआ पानी लें।
+2. इसमें **6 छोटी चम्मच चीनी** डालें।
+3. **आधा छोटी चम्मच नमक** मिलाएं।
+4. चम्मच से तब तक घोलें जब तक चीनी और नमक पूरी तरह घुल न जाएं।
+
+💡 **उपयोग विधि**: लू या डिहाइड्रेशन के समय दिनभर में थोड़ा-थोड़ा पीते रहें। यह शरीर में सोडियम और इलेक्ट्रोलाइट्स का संतुलन तुरंत बहाल करता है।`,
+        hasMapAction: false,
+      };
+    }
+  }
+
+  if (q.includes('lakshan') || q.includes('symptom') || q.includes('लक्षण') || q.includes('heatstroke') || q.includes('लू')) {
+    if (usePureHindi) {
+      return {
+        reply: `🚨 **लू (हीटस्ट्रोक) के मुख्य लक्षण एवं प्राथमिक उपचार**
+
+🔴 **मुख्य लक्षण**:
+• शरीर का तापमान 104°F (40°C) से अधिक होना
+• अत्यधिक पसीना आना बंद हो जाना, त्वचा का लाल व गर्म होना
+• सिर में तेज दर्द, चक्कर आना, उल्टी या जी मिचलाना
+• सांस तेज चलना और दिल की धड़कन बढ़ जाना
+
+🩹 **तत्काल प्राथमिक उपचार**:
+1. मरीज को तुरंत ठंडी, छायादार या पंखे/एसी वाली जगह पर ले जाएं।
+2. कपड़े ढीले करें और गर्दन, कांख व माथे पर ठंडे पानी की पट्टियां रखें।
+3. यदि होश में हो तो ठंडा पानी या ओआरएस पिलाएं।
+4. गंभीर स्थिति में तुरंत **108** या **112** पर एम्बुलेंस बुलाएं।`,
+        hasMapAction: false,
+      };
+    }
+  }
+
+  // D. Active region fallback for general queries
   const regionName = context?.region || 'Guwahati Metropolitan Area';
   const ambientTemp = Math.round(context?.ambientTemp ?? 30);
   const apparentTemp = Math.round(context?.apparentTemp ?? ambientTemp + 3);
@@ -254,7 +366,19 @@ Real-time satellite observation for **${top.name}**:
   const rainProb = context?.rainProb || 25;
   const isActualHeatwave = context?.isActualHeatwave ?? (ambientTemp >= 38);
 
-  if (q.includes('kal') || q.includes('tomorrow') || q.includes('forecast')) {
+  if (q.includes('kal') || q.includes('tomorrow') || q.includes('forecast') || q.includes('पूर्वानुमान')) {
+    if (usePureHindi) {
+      return {
+        reply: `🌤️ **कल का मौसम पूर्वानुमान (${regionName})**
+
+• 🌡️ **तापमान**: कल दोपहर में लगभग **${ambientTemp + 2}°C** तक जाएगा (सुबह और रात में **${ambientTemp - 5}°C**)।
+• 🌧️ **बारिश की संभावना**: **${rainProb}% संभावना**
+• ☀️ **हीटवेव (लू) की स्थिति**: ${isActualHeatwave ? '⚠️ दोपहर में तेज धूप व लू का असर रहेगा' : '✅ **सुरक्षित है** — हीटवेव का कोई खतरा नहीं है'}
+
+💡 **परामर्श**: दोपहर 12 से 3 बजे के बीच सीधे धूप में निकलने से बचें और पर्याप्त पानी पिएं।`,
+        hasMapAction: false,
+      };
+    }
     return {
       reply: `🌤️ **Kal Ka Mausam (${regionName})**
 
@@ -267,12 +391,39 @@ Real-time satellite observation for **${top.name}**:
     };
   }
 
-  if (q.includes('ambulance') || q.includes('hospital') || q.includes('doctor') || q.includes('108')) {
+  if (q.includes('ambulance') || q.includes('hospital') || q.includes('doctor') || q.includes('108') || q.includes('अस्पताल') || q.includes('एम्बुलेंस')) {
+    if (usePureHindi) {
+      return {
+        reply: `🚑 **आपातकालीन एम्बुलेंस व अस्पताल सेवा (${regionName})**
+
+📞 **निःशुल्क एम्बुलेंस**: तुरंत **108** या **112** पर कॉल करें।
+🏥 **हीटस्ट्रोक वार्ड**: सिविल अस्पताल और सामुदायिक स्वास्थ्य केंद्रों में 24x7 समर्पित एसी वार्ड एवं कोल्ड सलाइन ड्रिप उपलब्ध हैं।`,
+        hasMapAction: false,
+      };
+    }
     return {
       reply: `🚑 **Emergency Ambulance & Hospital Sahayata (${regionName})**
 
 📞 **Free Ambulance**: Turant **108** ya **112** par call karein.
 🏥 **Heatstroke Unit**: Civil Hospital aur Community Health Centers me dedicated AC wards aur cold saline infusion 24x7 uplabdh hai.`,
+      hasMapAction: false,
+    };
+  }
+
+  if (usePureHindi) {
+    return {
+      reply: `👋 **नमस्ते! मैं आपका रीयल-टाइम वेदर और हीटवेव सेफ्टी असिस्टेंट हूँ।**
+
+आप मुझसे **किसी भी शहर या इलाके का लाइव मौसम या सवाल** पूछ सकते हैं!
+
+जैसे:
+👉 "सोहना का मौसम कैसा है?"
+👉 "दिल्ली और मुंबई में से कौन ज्यादा गर्म है?"
+👉 "लू लगने के लक्षण और प्राथमिक उपचार"
+👉 "घर पर ओआरएस घोल कैसे बनाएं?"
+👉 "बिना एसी के कमरा ठंडा कैसे रखें?"
+
+📍 यदि किसी अज्ञात स्थान का मौसम देखना हो, तो आप नीचे मैप पर पिन भी लगा सकते हैं!`,
       hasMapAction: false,
     };
   }

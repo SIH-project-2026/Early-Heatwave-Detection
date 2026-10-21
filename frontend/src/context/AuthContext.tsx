@@ -19,14 +19,14 @@ export interface UserProfile {
 
 export const NDMA_USER: UserProfile = {
   id: 'ndma-hq-01',
-  name: 'National Disaster Management Authority',
+  name: 'HeatWave Commander',
   email: 'commander@ndma.gov.in',
-  role: 'NDMA Operations Commander',
+  role: 'Operations Commander',
   roleType: 'controller',
-  clearanceLevel: 'NDMA National L5 Supreme Clearance',
-  officerId: 'NDMA-HQ-2026',
-  department: 'National Disaster Management Authority (NDMA), Govt. of India',
-  initials: 'NDMA',
+  clearanceLevel: 'National Supreme Clearance',
+  officerId: 'HW-HQ-2026',
+  department: 'Heatwave Early Warning Authority, Govt. of India',
+  initials: 'HW',
   shift: 'National 24x7 Emergency Grid',
   avatarGradient: 'from-amber-500 via-sky-600 to-indigo-600',
   responsibilities: [
@@ -61,7 +61,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const saved = localStorage.getItem(STORAGE_KEY);
       if (!saved) return null;
       const parsed = JSON.parse(saved);
-      // Auto-migrate legacy personas to National Disaster Management Authority
+      // Auto-migrate initials to HW
+      if (parsed.initials !== 'HW') {
+        parsed.initials = 'HW';
+      }
+      if (!parsed.name || parsed.name.includes('National Disaster') || parsed.name.includes('NDMA') || parsed.name === 'Dana Castellanos') {
+        parsed.name = 'HeatWave Commander';
+      }
+      if (!parsed.role || parsed.role.includes('NDMA')) {
+        parsed.role = 'Operations Commander';
+      }
+      if (parsed.clearanceLevel && (parsed.clearanceLevel.includes('L5') || parsed.clearanceLevel.includes('NDMA'))) {
+        parsed.clearanceLevel = 'National Supreme Clearance';
+      }
+      if (parsed.officerId && parsed.officerId.startsWith('NDMA')) {
+        parsed.officerId = 'HW-HQ-2026';
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      // Auto-migrate legacy personas
       if (parsed.id !== 'ndma-hq-01') {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(NDMA_USER));
         return NDMA_USER;

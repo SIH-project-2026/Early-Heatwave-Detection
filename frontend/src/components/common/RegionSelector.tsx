@@ -9,6 +9,7 @@ import {
 } from '../../services/regionStorageService';
 import { searchCityCoordinates } from '../../services/locationService';
 import { fetchLiveWeatherForCoords } from '../../services/liveWeatherService';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   MapPin,
   ChevronDown,
@@ -36,6 +37,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
   onSelectRegion,
   className = '',
 }) => {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'cities' | 'map'>('cities');
   const [searchQuery, setSearchQuery] = useState('');
@@ -348,7 +350,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
   };
 
   return (
-    <div ref={dropdownRef} className={`relative z-50 inline-block text-left select-none ${className}`}>
+    <div ref={dropdownRef} className={`relative ${isOpen ? 'z-30' : 'z-auto'} inline-block text-left select-none ${className}`}>
       {/* Dropdown Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -360,7 +362,7 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
         <span className="truncate max-w-[160px] sm:max-w-[220px] font-sans">{activeRegion.name}</span>
         {activeRegion.isCustom && (
           <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 hidden sm:inline">
-            Saved
+            {t('savedBadge', 'Saved')}
           </span>
         )}
         <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />

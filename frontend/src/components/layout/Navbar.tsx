@@ -23,6 +23,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { playToggleSound } from '../../utils/soundService';
 import { RegionSelector } from '../common/RegionSelector';
 import { SearchBar } from '../common/SearchBar';
+import { LanguageSelector } from '../common/LanguageSelector';
 import { checkBackendHealth } from '../../services/api';
 
 interface NavbarProps {
@@ -104,8 +105,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
   return (
     <>
       <header
-        className={`sticky top-0 z-30 transition-[margin] duration-250 ease-out h-18 bg-black/95 backdrop-blur-md border-b border-white/[0.05] px-3 sm:px-6 flex items-center justify-between gap-3 font-sans select-none ${
-          isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        className={`sticky top-0 z-50 transition-[margin] duration-250 ease-out h-18 bg-black/95 backdrop-blur-md border-b border-white/[0.05] px-4 sm:px-6 flex items-center justify-between gap-3 font-sans select-none ${
+          isCollapsed ? 'lg:ml-16' : 'lg:ml-72'
         }`}
       >
         {/* Left Section: 4-square grid icon (mobile), notification bell, location chip */}
@@ -181,9 +182,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
               }`}
             />
             <span className={backendStatus === 'connected' ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
-              {backendStatus === 'connected' ? 'FastAPI Live' : backendStatus === 'checking' ? 'Connecting...' : 'Offline'}
+              {backendStatus === 'connected'
+                ? t('fastApiLive', 'FastAPI Live')
+                : backendStatus === 'checking'
+                ? t('connecting', 'Connecting...')
+                : t('offline', 'Offline')}
             </span>
           </div>
+
+          {/* Language Selector Dropdown */}
+          <LanguageSelector variant="compact" />
 
           {/* Ask AI Agent Button */}
           <button
@@ -192,7 +200,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
             title="Open Heatwave Early Warning AI Agent"
           >
             <Bot className="w-4 h-4 text-sky-400" />
-            <span className="hidden lg:inline">{t('askAi')}</span>
+            <span className="hidden lg:inline">{t('askAi', 'ASK AI')}</span>
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
           </button>
 
@@ -240,12 +248,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
             <div
               onClick={() => setIsProfileOpen((prev) => !prev)}
               className="relative cursor-pointer group transition-transform hover:scale-105"
-              title={`${user?.name || 'Dana Castellanos'} (${user?.role || 'Operations Controller'})`}
+              title={`${user?.name || 'Operations Controller'}`}
             >
               <div className={`w-9 h-9 rounded-full bg-gradient-to-tr ${user?.avatarGradient || 'from-rose-500 via-amber-500 to-sky-500'} p-0.5 shadow-md flex items-center justify-center`}>
                 <div className="w-full h-full rounded-full bg-[#181920] flex items-center justify-center overflow-hidden">
                   <span className="text-xs font-bold text-white font-mono">
-                    {user?.initials || 'NDMA'}
+                    {user?.initials || 'HW'}
                   </span>
                 </div>
               </div>
@@ -261,19 +269,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
                 />
                 <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-[#181920] border border-white/[0.08] shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 card-highlight-rim">
                   <div className="px-2.5 py-2 border-b border-white/[0.06] mb-2">
-                    <div className="flex items-center space-x-2">
-                      <h4 className="text-xs font-semibold text-white truncate">
-                        {user?.name || 'National Disaster Management Authority'}
-                      </h4>
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-medium bg-amber-500/15 text-amber-400">
-                        NDMA L5
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                      {user?.role || 'NDMA Operations Commander'}
+                    <p className="text-xs font-semibold text-white truncate">
+                      {user?.role || 'HeatWave Operations Commander'}
                     </p>
-                    <p className="text-[10px] text-slate-500 font-mono truncate">
-                      ID: {user?.officerId || 'NDMA-HQ-2026'}
+                    <p className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
+                      ID: {user?.officerId || 'HW-HQ-2026'}
                     </p>
                   </div>
 
@@ -286,7 +286,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
                       className="w-full text-left px-2.5 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/[0.05] transition-colors flex items-center space-x-2 cursor-pointer"
                     >
                       <User className="w-3.5 h-3.5 text-sky-400" />
-                      <span>Station Settings</span>
+                      <span>{t('stationSettings', 'Station Settings')}</span>
                     </button>
 
                     <button
@@ -298,7 +298,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
                       className="w-full text-left px-2.5 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center space-x-2 cursor-pointer border-t border-white/[0.04] mt-1 pt-2"
                     >
                       <LogOut className="w-3.5 h-3.5" />
-                      <span>Sign Out / Lock Console</span>
+                      <span>{t('signOutLockConsole', 'Sign Out / Lock Console')}</span>
                     </button>
                   </div>
                 </div>

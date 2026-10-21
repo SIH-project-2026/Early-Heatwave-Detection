@@ -9,6 +9,7 @@ import {
   getRegionBoundaryCoordinates,
 } from './regionDataGenerator';
 import { fetchLiveWeatherForCoords, type LiveWeatherData } from './liveWeatherService';
+import { calculateRiskLevel } from '../utils/riskUtils';
 
 export const wardService = {
   async getWards(region?: MunicipalRegion, liveWeather?: LiveWeatherData): Promise<Ward[]> {
@@ -23,6 +24,29 @@ export const wardService = {
             return Math.abs(w.centroid[0] - cLng) <= 1.2 && Math.abs(w.centroid[1] - cLat) <= 1.2;
           });
           if (validWards.length > 0) {
+            if (liveWeather) {
+              return validWards.map((w, idx) => {
+                const micro = ((idx % 5) - 2) * 0.3;
+                const tempC = Number((liveWeather.temperatureC + micro).toFixed(1));
+                const utci = Number((liveWeather.apparentTempC + micro * 1.1).toFixed(1));
+                const wbgt = Number((liveWeather.wbgtIndex + micro * 0.5).toFixed(1));
+                const hvi = w.vulnerability?.hvi ?? 0.5;
+                const risk = calculateRiskLevel(utci, wbgt, hvi, tempC);
+                return {
+                  ...w,
+                  currentMetrics: {
+                    ...w.currentMetrics,
+                    tempC,
+                    utci,
+                    wbgt,
+                    humidity: liveWeather.humidity,
+                    riskLevel: risk,
+                    isActive: risk !== 'LOW',
+                    status: (risk !== 'LOW' ? 'ACTIVE' : 'INACTIVE') as 'ACTIVE' | 'INACTIVE',
+                  },
+                };
+              });
+            }
             return validWards;
           }
         }

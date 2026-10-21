@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   Radio,
   Wifi,
@@ -27,6 +28,7 @@ import { playHeatwaveAlertSound, playDispatchSound, playToggleSound } from '../.
 
 export const RoleFeaturePanel: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const roleType = user?.roleType || 'controller';
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -76,14 +78,14 @@ export const RoleFeaturePanel: React.FC = () => {
               <div>
                 <div className="flex items-center space-x-2">
                   <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                    NDMA Operations Command Hub & Siren Command Grid
+                    {t('ndmaOperationsHub', 'NDMA Operations Command Hub & Siren Command Grid')}
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                    4/4 NODES LIVE
+                    {t('nodesLive', '4/4 NODES LIVE')}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 font-normal mt-0.5">
-                  National synchronized command matrix linking weather radars, state emergency operations centers (SEOC), and emergency siren grids.
+                  {t('ndmaCommandMatrix', 'National synchronized command matrix linking weather radars, state emergency operations centers (SEOC), and emergency siren grids.')}
                 </p>
               </div>
             </div>
@@ -98,7 +100,7 @@ export const RoleFeaturePanel: React.FC = () => {
               }`}
             >
               {sirenActive ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              <span>{sirenActive ? 'SILENCE MASTER SIRENS' : 'BROADCAST STATE SIREN GRID'}</span>
+              <span>{sirenActive ? t('silenceMasterSirens', 'SILENCE MASTER SIRENS') : t('broadcastStateSiren', 'BROADCAST STATE SIREN GRID')}</span>
             </button>
           </div>
 
@@ -107,14 +109,14 @@ export const RoleFeaturePanel: React.FC = () => {
             {/* Node 1: IMD Doppler Radar */}
             <div className="bg-[#13141a] p-3.5 rounded-2xl border border-white/[0.06] space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-white">IMD Doppler Radar</span>
+                <span className="text-xs font-semibold text-white">{t('imdDopplerRadar', 'IMD Doppler Radar')}</span>
                 <span className="flex items-center space-x-1.5 text-[10px] font-mono font-medium text-emerald-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span>120ms PING</span>
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed font-normal">
-                100% telemetry assimilation active. INSAT-3DR thermal bands refreshing every 15 mins.
+                {t('imdRadarDesc', '100% telemetry assimilation active. INSAT-3DR thermal bands refreshing every 15 mins.')}
               </p>
               <button
                 onClick={() => {
@@ -123,21 +125,21 @@ export const RoleFeaturePanel: React.FC = () => {
                 }}
                 className="w-full py-1.5 rounded-xl bg-[#181920] hover:bg-white/[0.05] border border-white/[0.06] text-[11px] text-sky-300 font-medium transition-colors cursor-pointer"
               >
-                Ping IMD Gateway
+                {t('pingImdGateway', 'Ping IMD Gateway')}
               </button>
             </div>
 
             {/* Node 2: NDMA State Terminal */}
             <div className="bg-[#13141a] p-3.5 rounded-2xl border border-white/[0.06] space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-white">NDMA State Gateway</span>
+                <span className="text-xs font-semibold text-white">{t('ndmaStateGateway', 'NDMA State Gateway')}</span>
                 <span className="flex items-center space-x-1.5 text-[10px] font-mono font-medium text-sky-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
                   <span>SYNC'D (L3)</span>
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed font-normal">
-                National Heat Action Plan (HAP) Level-3 advisory active. Collectors conference bridged.
+                {t('ndmaStateDesc', 'National Heat Action Plan (HAP) Level-3 advisory active. Collectors conference bridged.')}
               </p>
               <button
                 onClick={() => {
@@ -146,21 +148,21 @@ export const RoleFeaturePanel: React.FC = () => {
                 }}
                 className="w-full py-1.5 rounded-xl bg-[#181920] hover:bg-white/[0.05] border border-white/[0.06] text-[11px] text-sky-300 font-medium transition-colors cursor-pointer"
               >
-                Transmit Protocol Ack
+                {t('transmitProtocolAck', 'Transmit Protocol Ack')}
               </button>
             </div>
 
             {/* Node 3: Fire & Rescue Services */}
             <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.06] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white">Fire & Relief Grid</span>
+                <span className="text-xs font-bold text-white">{t('fireReliefGrid', 'Fire & Relief Grid')}</span>
                 <span className="flex items-center space-x-1.5 text-[10px] font-mono font-bold text-amber-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  <span>24 STATIONS READY</span>
+                  <span>{t('stationsReady', '24 STATIONS READY')}</span>
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                High-pressure misting trucks and foam tenders pre-positioned in critical industrial wards.
+                {t('fireReliefDesc', 'High-pressure misting trucks and foam tenders pre-positioned in critical industrial wards.')}
               </p>
               <button
                 onClick={() => {
@@ -169,21 +171,21 @@ export const RoleFeaturePanel: React.FC = () => {
                 }}
                 className="w-full py-1.5 rounded-xl bg-[#181920] hover:bg-white/[0.05] border border-white/[0.06] text-[11px] text-amber-300 font-bold transition-colors cursor-pointer"
               >
-                Poll Station Readiness
+                {t('pollStationReadiness', 'Poll Station Readiness')}
               </button>
             </div>
 
             {/* Node 4: Transit & VMS Highway Displays */}
             <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.06] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white">Highway Transit VMS</span>
+                <span className="text-xs font-bold text-white">{t('highwayTransitVms', 'Highway Transit VMS')}</span>
                 <span className="flex items-center space-x-1.5 text-[10px] font-mono font-bold text-emerald-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span>84 SIGNS ACTIVE</span>
+                  <span>{t('signsActive', '84 SIGNS ACTIVE')}</span>
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Variable Message Signs warning truck drivers and commuters of 46°C peak road temperatures.
+                {t('highwayTransitDesc', 'Variable Message Signs warning truck drivers and commuters of 46°C peak road temperatures.')}
               </p>
               <button
                 onClick={() => {
@@ -192,7 +194,7 @@ export const RoleFeaturePanel: React.FC = () => {
                 }}
                 className="w-full py-1.5 rounded-xl bg-[#181920] hover:bg-white/[0.05] border border-white/[0.06] text-[11px] text-emerald-300 font-bold transition-colors cursor-pointer"
               >
-                Broadcast Highway Notice
+                {t('broadcastHighwayNotice', 'Broadcast Highway Notice')}
               </button>
             </div>
           </div>
