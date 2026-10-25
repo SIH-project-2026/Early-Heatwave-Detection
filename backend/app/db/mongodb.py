@@ -1,13 +1,17 @@
 import os
+from pathlib import Path
 import certifi
 from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
-load_dotenv()
+# Ensure .env is read from backend root
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-DB_NAME = os.getenv("DB_NAME", "heatwave_db")
+# Reads MONGODB_URI or MONGO_URI from .env
+MONGO_URI = os.getenv("MONGODB_URI") or os.getenv("MONGO_URI") or "mongodb://localhost:27017"
+DB_NAME = os.getenv("DB_NAME") or os.getenv("DATABASE_NAME") or "heatwaves_db"
 
 _client: Optional[AsyncIOMotorClient] = None
 

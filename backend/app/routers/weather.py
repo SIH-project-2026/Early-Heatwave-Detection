@@ -1,11 +1,18 @@
 import math
+import os
 from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict
-from fastapi import APIRouter, Query
+from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, Query, HTTPException, status
 import httpx
+from dotenv import load_dotenv
 from app.db.mongodb import get_database
 
+load_dotenv()
+
 router = APIRouter(prefix="/api", tags=["Weather & Forecast"])
+
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+OPENWEATHER_BASE_URL = os.getenv("OPENWEATHER_BASE_URL", "https://api.openweathermap.org/data/2.5")
 
 REGION_COORDS: Dict[str, tuple[float, float]] = {
     "guwahati": (26.1445, 91.7362),
@@ -39,6 +46,14 @@ def get_risk_level(temp: float, humidity: float) -> str:
         return "MODERATE"
     return "LOW"
 
+def resolve_coords(region_id: Optional[str], lat: Optional[float], lon: Optional[float]) -> tuple[float, float]:
+    if lat is not None and lon is not None:
+        return (lat, lon)
+    if region_id and region_id.lower() in REGION_COORDS:
+        return REGION_COORDS[region_id.lower()]
+    return (28.6139, 77.2090)
+
+# Kept for compatibility with app/routers/alerts.py
 async def fetch_open_meteo(lat: float, lon: float):
     url = (
         f"https://api.open-meteo.com/v1/forecast?"
@@ -47,18 +62,74 @@ async def fetch_open_meteo(lat: float, lon: float):
         f"current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m&"
         f"timezone=auto"
     )
-    async with httpx.AsyncClient(timeout=8.0) as client:
-        res = await client.get(url)
-        if res.status_code == 200:
-            return res.json()
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            res = await client.get(url)
+            if res.status_code == 200:
+                return res.json()
+        except Exception as e:
+            print(f"[Open-Meteo Error]: {e}")
     return None
 
-def resolve_coords(region_id: Optional[str], lat: Optional[float], lon: Optional[float]) -> tuple[float, float]:
-    if lat is not None and lon is not None:
-        return (lat, lon)
-    if region_id and region_id.lower() in REGION_COORDS:
-        return REGION_COORDS[region_id.lower()]
-    return (28.6139, 77.2090)
+# ----------------- REAL OPENWEATHER API CALLS -----------------
+
+async def fetch_openweather_current(lat: float, lon: float) -> Dict[str, Any]:
+    if not OPENWEATHER_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OPENWEATHER_API_KEY missing in .env"
+        )
+    url = f"{OPENWEATHER_BASE_URL}/weather"
+    params = {"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY, "units": "metric"}
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.get(url, params=params)
+        if res.status_code != 200:
+            raise HTTPException(status_code=res.status_code, detail=f"OpenWeather Error: {res.text}")
+        return res.json()
+
+async def fetch_openweather_forecast(lat: float, lon: float) -> Dict[str, Any]:
+    if not OPENWEATHER_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OPENWEATHER_API_KEY missing in .env"
+        )
+    url = f"{OPENWEATHER_BASE_URL}/forecast"
+    params = {"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY, "units": "metric"}
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.get(url, params=params)
+        if res.status_code != 200:
+            raise HTTPException(status_code=res.status_code, detail=f"OpenWeather Forecast Error: {res.text}")
+        return res.json()
+
+# ----------------- ENDPOINTS -----------------
+
+@router.get("/weather/current")
+async def get_live_weather(
+    regionId: Optional[str] = Query(None),
+    region: Optional[str] = Query(None),
+    lat: Optional[float] = Query(None),
+    lon: Optional[float] = Query(None)
+):
+    target_lat, target_lon = resolve_coords(regionId or region, lat, lon)
+    data = await fetch_openweather_current(target_lat, target_lon)
+
+    temp = float(data["main"]["temp"])
+    humidity = float(data["main"]["humidity"])
+
+    return {
+        "source": "OpenWeatherMap Live Telemetry",
+        "region": regionId or region,
+        "city": data.get("name"),
+        "lat": target_lat,
+        "lon": target_lon,
+        "temperature": temp,
+        "humidity": humidity,
+        "feels_like": float(data["main"]["feels_like"]),
+        "wind_speed": float(data.get("wind", {}).get("speed", 0.0)),
+        "heat_index": calculate_heat_index(temp, humidity),
+        "risk_level": get_risk_level(temp, humidity),
+        "timestamp": datetime.fromtimestamp(data.get("dt", 0), timezone.utc).isoformat()
+    }
 
 @router.get("/forecast")
 async def get_forecast(
@@ -67,68 +138,39 @@ async def get_forecast(
     lat: Optional[float] = Query(None),
     lon: Optional[float] = Query(None)
 ):
-    """
-    Returns ForecastStep[] array conforming to frontend ForecastStep interface
-    """
     active_region = regionId or region or "delhi-gurgaon"
     target_lat, target_lon = resolve_coords(active_region, lat, lon)
 
-    # Fetch live weather or sensible fallback
-    weather_data = None
-    try:
-        weather_data = await fetch_open_meteo(target_lat, target_lon)
-    except Exception as e:
-        print(f"[Open-Meteo Warning]: {e}")
+    raw_forecast = await fetch_openweather_forecast(target_lat, target_lon)
+    forecast_list = raw_forecast.get("list", [])
+    if not forecast_list:
+        raise HTTPException(status_code=502, detail="OpenWeather returned empty forecast")
 
-    current_temp = 30.0
-    current_hum = 65.0
-    if weather_data and "current" in weather_data:
-        current_temp = weather_data["current"].get("temperature_2m", 30.0)
-        current_hum = weather_data["current"].get("relative_humidity_2m", 65.0)
-
-    # Query wards for the region to calculate wardRisks
+    # Real Wards Query from MongoDB
     db = get_database()
     wards = []
-    try:
-        if active_region.lower() in ["delhi", "gurgaon", "sohna-gurgaon", "delhi-gurgaon"]:
-            q = {"regionId": {"$in": ["delhi-gurgaon", "delhi", "gurgaon", "sohna-gurgaon"]}}
-        else:
-            q = {"regionId": active_region.lower()}
-        cursor = db.wards.find(q)
-        async for w in cursor:
-            wards.append(w)
-    except Exception:
-        pass
+    if db is not None:
+        try:
+            if active_region.lower() in ["delhi", "gurgaon", "sohna-gurgaon", "delhi-gurgaon"]:
+                q = {"regionId": {"$in": ["delhi-gurgaon", "delhi", "gurgaon", "sohna-gurgaon"]}}
+            else:
+                q = {"regionId": active_region.lower()}
+            cursor = db.wards.find(q)
+            async for w in cursor:
+                wards.append(w)
+        except Exception:
+            pass
 
-    if not wards:
-        wards = [
-            {"id": "W-01", "name": "Central Ward", "population": 60000, "vulnerability": {"pavedSurfacePercent": 75}},
-            {"id": "W-02", "name": "Transit Ward", "population": 55000, "vulnerability": {"pavedSurfacePercent": 82}},
-            {"id": "W-03", "name": "Commercial Zone", "population": 48000, "vulnerability": {"pavedSurfacePercent": 88}}
-        ]
-
-    now = datetime.now(timezone.utc)
-    hour_offsets = [0, 6, 12, 24, 48, 72]
     steps = []
+    base_time = datetime.fromtimestamp(forecast_list[0]["dt"], timezone.utc)
 
-    hourly = weather_data.get("hourly", {}) if weather_data else {}
-    hourly_temps = hourly.get("temperature_2m", [])
-    hourly_hums = hourly.get("relative_humidity_2m", [])
+    for idx, item in enumerate(forecast_list[:9]):
+        step_dt = datetime.fromtimestamp(item["dt"], timezone.utc)
+        hour_offset = int((step_dt - base_time).total_seconds() // 3600)
+        display_label = "Now" if idx == 0 else f"+{hour_offset}h ({step_dt.strftime('%a %I %p')})"
 
-    for offset in hour_offsets:
-        step_dt = now + timedelta(hours=offset)
-        display_label = "Now" if offset == 0 else f"+{offset}h ({step_dt.strftime('%a %I %p')})"
-        
-        # Use real Open-Meteo hourly satellite telemetry if available, else fallback to current baseline
-        if hourly_temps and offset < len(hourly_temps):
-            t = round(float(hourly_temps[offset]), 1)
-            h = round(float(hourly_hums[offset]), 1) if offset < len(hourly_hums) else current_hum
-        else:
-            t = current_temp
-            h = current_hum
-
-        hi = calculate_heat_index(t, h)
-        wbgt = round(t * 0.74, 1)
+        t = float(item["main"]["temp"])
+        h = float(item["main"]["humidity"])
 
         ward_risks = {}
         low_c = 0
@@ -138,9 +180,9 @@ async def get_forecast(
         total_pop_at_risk = 0
 
         for w in wards:
-            w_id = w.get("id") or "W-01"
-            paved = w.get("vulnerability", {}).get("pavedSurfacePercent", 70)
-            uhi_offset = round((paved - 65) * 0.03, 1)
+            w_id = str(w.get("id") or w.get("_id"))
+            paved = float(w.get("vulnerability", {}).get("pavedSurfacePercent", 65.0))
+            uhi_offset = round((paved - 65.0) * 0.03, 1)
             w_temp = round(t + uhi_offset, 1)
             w_hi = calculate_heat_index(w_temp, h)
             w_wbgt = round(w_temp * 0.74, 1)
@@ -153,7 +195,7 @@ async def get_forecast(
                 "humidity": round(h),
                 "riskLevel": w_risk
             }
-            pop = int(w.get("population", 50000))
+            pop = int(w.get("population", 0))
             if w_risk == "SEVERE":
                 sev_c += 1
                 total_pop_at_risk += pop
@@ -166,7 +208,7 @@ async def get_forecast(
                 low_c += 1
 
         steps.append({
-            "hourOffset": offset,
+            "hourOffset": hour_offset,
             "timestamp": step_dt.isoformat(),
             "displayDate": display_label,
             "wardRisks": ward_risks,
@@ -189,66 +231,46 @@ async def get_time_series(
     lat: Optional[float] = Query(None),
     lon: Optional[float] = Query(None)
 ):
-    """
-    Returns ForecastTimeSeriesPoint[] array for timeline scrubber & analytics charts
-    derived from real live Open-Meteo hourly meteorological telemetry.
-    """
     active_region = regionId or region or "delhi-gurgaon"
     target_lat, target_lon = resolve_coords(active_region, lat, lon)
 
-    weather_data = None
-    try:
-        weather_data = await fetch_open_meteo(target_lat, target_lon)
-    except Exception as e:
-        print(f"[Open-Meteo TimeSeries Warning]: {e}")
+    raw_forecast = await fetch_openweather_forecast(target_lat, target_lon)
+    forecast_list = raw_forecast.get("list", [])
+    if not forecast_list:
+        raise HTTPException(status_code=502, detail="OpenWeather returned empty forecast")
 
-    current_temp = 30.0
-    current_hum = 65.0
-    if weather_data and "current" in weather_data:
-        current_temp = float(weather_data["current"].get("temperature_2m", 30.0))
-        current_hum = float(weather_data["current"].get("relative_humidity_2m", 65.0))
-
-    # Fetch wards for this region
     db = get_database()
     wards = []
-    try:
-        if active_region.lower() in ["delhi", "gurgaon", "sohna-gurgaon", "delhi-gurgaon"]:
-            q = {"regionId": {"$in": ["delhi-gurgaon", "delhi", "gurgaon", "sohna-gurgaon"]}}
-        else:
-            q = {"regionId": active_region.lower()}
-        cursor = db.wards.find(q)
-        async for w in cursor:
-            wards.append(w)
-    except Exception:
-        pass
+    if db is not None:
+        try:
+            if active_region.lower() in ["delhi", "gurgaon", "sohna-gurgaon", "delhi-gurgaon"]:
+                q = {"regionId": {"$in": ["delhi-gurgaon", "delhi", "gurgaon", "sohna-gurgaon"]}}
+            else:
+                q = {"regionId": active_region.lower()}
+            cursor = db.wards.find(q)
+            async for w in cursor:
+                wards.append(w)
+        except Exception:
+            pass
 
-    now = datetime.now(timezone.utc)
+    base_time = datetime.fromtimestamp(forecast_list[0]["dt"], timezone.utc)
     series = []
 
-    hourly = weather_data.get("hourly", {}) if weather_data else {}
-    hourly_temps = hourly.get("temperature_2m", [])
-    hourly_hums = hourly.get("relative_humidity_2m", [])
+    for idx, item in enumerate(forecast_list[:16]):
+        step_dt = datetime.fromtimestamp(item["dt"], timezone.utc)
+        hour_offset = int((step_dt - base_time).total_seconds() // 3600)
 
-    for i in range(0, 49, 3):
-        step_dt = now + timedelta(hours=i)
-        
-        # Real Open-Meteo hourly temperature & humidity
-        if hourly_temps and i < len(hourly_temps):
-            t = round(float(hourly_temps[i]), 1)
-            h = round(float(hourly_hums[i]), 1) if i < len(hourly_hums) else current_hum
-        else:
-            t = current_temp
-            h = current_hum
+        t = float(item["main"]["temp"])
+        h = float(item["main"]["humidity"])
 
         utci = calculate_heat_index(t, h)
         wbgt = round(t * 0.74, 1)
 
-        # Count wards exceeding thresholds dynamically
         sev_count = 0
         high_count = 0
         for w in wards:
-            paved = w.get("vulnerability", {}).get("pavedSurfacePercent", 70)
-            w_uhi = round((paved - 65) * 0.03, 1)
+            paved = float(w.get("vulnerability", {}).get("pavedSurfacePercent", 65.0))
+            w_uhi = round((paved - 65.0) * 0.03, 1)
             w_t = t + w_uhi
             w_risk = get_risk_level(w_t, h)
             if w_risk == "SEVERE":
@@ -257,9 +279,9 @@ async def get_time_series(
                 high_count += 1
 
         series.append({
-            "hourOffset": i,
+            "hourOffset": hour_offset,
             "timestamp": step_dt.isoformat(),
-            "timeLabel": "Now" if i == 0 else f"+{i}h",
+            "timeLabel": "Now" if idx == 0 else f"+{hour_offset}h",
             "avgUtci": utci,
             "avgWbgt": wbgt,
             "avgTemp": t,

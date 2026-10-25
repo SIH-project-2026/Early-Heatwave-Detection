@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { HeatAlert } from '../../types/alert';
 import { RiskBadge } from '../common/RiskBadge';
-import { ShieldAlert, Clock, MapPin, CheckCircle2, ArrowRight, Radio } from 'lucide-react';
+import { ShieldAlert, Clock, MapPin, CheckCircle2, ArrowRight } from 'lucide-react';
 import { formatDateTime } from '../../utils/formatters';
 import { playToggleSound, playDispatchSound } from '../../utils/soundService';
 
@@ -173,7 +173,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({
           ))}
         </div>
 
-        {/* Action buttons: mobile friendly & responsive */}
+        {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-auto">
           {onViewWard && (
             <button

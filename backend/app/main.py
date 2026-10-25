@@ -1,3 +1,4 @@
+from app.routers import finance
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI
@@ -41,6 +42,7 @@ app.include_router(resources.router)
 app.include_router(wards.router)
 app.include_router(risk_forecast.router)
 app.include_router(agent.router)
+app.include_router(finance.router)
 
 @app.get("/")
 @app.get("/api")
