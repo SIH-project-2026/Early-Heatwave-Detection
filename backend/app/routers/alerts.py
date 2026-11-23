@@ -2,8 +2,7 @@ import os
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, List, Any
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone, timedelta
 import httpx
 from dotenv import load_dotenv
 from bson import ObjectId
@@ -19,7 +18,7 @@ DEFAULT_BOT_TOKEN = "8957159088:AAFtJd-cqDqp_bfPNZy9PPd8N_n2PdGUxF0"
 VERIFIED_CHAT_ID = "1090282874"
 
 # Indian Standard Time Zone
-IST = ZoneInfo("Asia/Kolkata")
+IST = timezone(timedelta(hours=5, minutes=30))
 
 class AlertCreate(BaseModel):
     wardId: Optional[str] = "W-01"

@@ -57,10 +57,14 @@ const STORAGE_KEYS = {
 
 function sanitizeRegion(region: MunicipalRegion): MunicipalRegion {
   if (!region || !region.name) return region;
+  // If region was searched or created by user, preserve user-selected coordinates
+  if (region.isCustom || region.id?.startsWith('custom-')) {
+    return region;
+  }
   const norm = region.name.toLowerCase().replace(/[^a-z0-9]/g, '');
   const known =
     KNOWN_INDIAN_LOCATIONS[norm] ||
-    Object.entries(KNOWN_INDIAN_LOCATIONS).find(([k]) => norm.includes(k) || k.includes(norm))?.[1];
+    Object.entries(KNOWN_INDIAN_LOCATIONS).find(([k]) => k.length >= 4 && norm === k)?.[1];
 
   if (known) {
     const distLng = Math.abs(region.coordinates[0] - known.lng);

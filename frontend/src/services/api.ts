@@ -4,7 +4,7 @@ import axios from 'axios';
 const API_BASE_URL =
   import.meta.env.VITE_BACKEND_BASE_URL ||
   import.meta.env.VITE_API_BASE_URL ||
-  'http://localhost:8000/api';
+  '/api';
 
 // Default to live backend FastAPI + MongoDB integration unless VITE_USE_MOCK is explicitly true
 export const isMockMode = import.meta.env.VITE_USE_MOCK === 'true';

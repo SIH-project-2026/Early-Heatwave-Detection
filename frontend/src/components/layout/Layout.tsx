@@ -91,7 +91,7 @@ export const Layout: React.FC = () => {
         />
 
         <main
-          className={`flex-1 transition-[margin] duration-250 ease-out min-h-[calc(100vh-4.5rem)] p-4 sm:p-6 lg:p-8 overflow-x-hidden ${
+          className={`flex-1 transition-[margin] duration-250 ease-out min-h-[calc(100vh-4.5rem)] p-5 sm:p-7 md:p-8 lg:p-9 xl:p-10 overflow-x-hidden ${
             isCollapsed ? 'lg:ml-16' : 'lg:ml-72'
           }`}
         >

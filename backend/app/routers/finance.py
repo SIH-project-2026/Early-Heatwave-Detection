@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Query
 from typing import Optional
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone, timedelta
 from app.db.disaster_funds import resolve_state_fund
 from app.routers.weather import fetch_open_meteo, calculate_heat_index, get_risk_level
 
 router = APIRouter(prefix="/api/relief-funds", tags=["Relief Funds & SDRF"])
-IST = ZoneInfo("Asia/Kolkata")
+IST = timezone(timedelta(hours=5, minutes=30))
 
 @router.get("")
 @router.get("/")

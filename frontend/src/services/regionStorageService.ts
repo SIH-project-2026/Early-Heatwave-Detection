@@ -69,15 +69,13 @@ export function saveCustomRegion(region: MunicipalRegion): MunicipalRegion {
   try {
     const existing = getSavedCustomRegions();
     const norm = region.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const known =
-      KNOWN_INDIAN_LOCATIONS[norm] ||
-      Object.entries(KNOWN_INDIAN_LOCATIONS).find(([k]) => norm.includes(k) || k.includes(norm))?.[1];
+    const known = KNOWN_INDIAN_LOCATIONS[norm];
 
     const formatted: MunicipalRegion = {
       ...region,
-      name: known ? known.name : region.name,
-      state: known ? known.state : region.state,
-      coordinates: known ? [known.lng, known.lat] : region.coordinates,
+      name: region.name || known?.name || 'Custom Location',
+      state: region.state || known?.state || 'Saved Location',
+      coordinates: region.coordinates || (known ? [known.lng, known.lat] : [77.209, 28.613]),
       isCustom: true,
       savedAt: region.savedAt || new Date().toISOString(),
     };
@@ -163,3 +161,67 @@ export function subscribeToRegionUpdates(callback: () => void): () => void {
     window.removeEventListener('storage', handleUpdate);
   };
 }
+
+export const SAVED_WARDS_STORAGE_KEY = 'heatwave_saved_wards';
+export const WARDS_UPDATED_EVENT = 'heatwave_saved_wards_updated';
+
+/**
+ * Retrieve saved/starred ward IDs from localStorage
+ */
+export function getSavedWardIds(): string[] {
+  try {
+    if (typeof window === 'undefined') return [];
+    const raw = localStorage.getItem(SAVED_WARDS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Toggle bookmark/save state of a ward ID
+ */
+export function toggleSaveWard(wardId: string): boolean {
+  try {
+    const saved = getSavedWardIds();
+    const exists = saved.includes(wardId);
+    const updated = exists ? saved.filter((id) => id !== wardId) : [...saved, wardId];
+    localStorage.setItem(SAVED_WARDS_STORAGE_KEY, JSON.stringify(updated));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent(WARDS_UPDATED_EVENT, { detail: { wardId, isSaved: !exists, allSaved: updated } })
+      );
+    }
+    return !exists;
+  } catch (err) {
+    console.warn('Error saving ward bookmark:', err);
+    return false;
+  }
+}
+
+/**
+ * Check if a ward is saved
+ */
+export function isWardSaved(wardId: string): boolean {
+  return getSavedWardIds().includes(wardId);
+}
+
+/**
+ * Subscribe to ward bookmark updates in localStorage / custom events
+ */
+export function subscribeToWardUpdates(callback: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const handleUpdate = () => callback();
+  window.addEventListener(WARDS_UPDATED_EVENT, handleUpdate);
+  window.addEventListener('storage', handleUpdate);
+
+  return () => {
+    window.removeEventListener(WARDS_UPDATED_EVENT, handleUpdate);
+    window.removeEventListener('storage', handleUpdate);
+  };
+}
+

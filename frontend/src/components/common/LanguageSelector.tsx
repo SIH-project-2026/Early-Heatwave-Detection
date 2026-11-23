@@ -52,9 +52,11 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex items-center space-x-2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-[#181920] border border-white/[0.08] hover:border-amber-500/40 text-slate-200 hover:text-white transition-all text-xs font-semibold cursor-pointer shadow-sm active:scale-95 ${
+        className={`flex items-center space-x-2 rounded-xl bg-[#181920] border border-white/[0.08] hover:border-amber-500/40 text-slate-200 hover:text-white transition-all text-xs font-semibold cursor-pointer shadow-sm active:scale-95 ${
+          isSidebar ? 'w-full justify-between px-3.5 py-2.5' : 'px-2.5 sm:px-3 py-1.5 rounded-2xl'
+        } ${
           isOpen ? 'ring-2 ring-amber-500/40 border-amber-500/60 bg-[#20222a]' : ''
-        } ${isSidebar ? 'w-full justify-between' : ''}`}
+        }`}
         title="Change Language / भाषा बदलें"
         aria-label="Select Application Language"
         aria-expanded={isOpen}

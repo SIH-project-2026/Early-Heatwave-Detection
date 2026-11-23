@@ -1,0 +1,42 @@
+services:
+  # ══════════════════════════════════════════════════════════
+  # HeatRisk AI — Single Full-Stack Service on Render
+  # FastAPI backend serves React frontend + all /api routes
+  # One URL, zero CORS issues, completely free tier
+  # ══════════════════════════════════════════════════════════
+  - type: web
+    name: heatwave-app
+    runtime: python
+    plan: free
+    buildCommand: bash build.sh
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # ── Database ──────────────────────────────────────────
+      - key: MONGODB_URI
+        sync: false         # Set in Render dashboard → Atlas URI
+      - key: DB_NAME
+        value: heatwaves_db
+
+      # ── AI Agent Keys (Optional) ──────────────────────────
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+      # ── Weather API ───────────────────────────────────────
+      - key: OPENWEATHER_API_KEY
+        sync: false
+
+      # ── Telegram Emergency Bot ────────────────────────────
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+      # ── Runtime Versions ──────────────────────────────────
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: NODE_VERSION
+        value: "20.11.0"

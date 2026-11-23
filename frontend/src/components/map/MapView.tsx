@@ -506,7 +506,7 @@ export const MapView: React.FC<MapViewProps> = ({
         const hasActive = wards.some((w) => w.currentMetrics?.riskLevel !== 'LOW');
         const initialFilter =
           riskFilter === 'ALL'
-            ? (hasActive ? ['!=', ['get', 'risk_level'], 'LOW'] : ['has', 'risk_level'])
+            ? (hasActive ? ['!=', ['get', 'risk_level'], 'LOW'] : ['==', ['get', 'risk_level'], '__NONE__'])
             : ['==', ['get', 'risk_level'], riskFilter];
 
         map.addLayer({
@@ -768,10 +768,10 @@ export const MapView: React.FC<MapViewProps> = ({
     if (mapRef.current.getLayer('wards-fill')) {
       const hasActive = wards.some((w) => w.currentMetrics?.riskLevel !== 'LOW');
       if (riskFilter === 'ALL') {
-        // By default, show active heatwave wards (Severe, High, Moderate). Low risk wards are hidden unless explicitly selected.
+        // By default, show active heatwave wards (Severe, High, Moderate). If none are active, show nothing.
         mapRef.current.setFilter(
           'wards-fill',
-          (hasActive ? ['!=', ['get', 'risk_level'], 'LOW'] : ['has', 'risk_level']) as any
+          (hasActive ? ['!=', ['get', 'risk_level'], 'LOW'] : ['==', ['get', 'risk_level'], '__NONE__']) as any
         );
       } else {
         mapRef.current.setFilter('wards-fill', ['==', ['get', 'risk_level'], riskFilter] as any);
@@ -1047,26 +1047,36 @@ export const MapView: React.FC<MapViewProps> = ({
 
   // Fly & Fit to active region wards when region is changed from selector
   const prevRegionIdRef = useRef<string>(activeRegion?.id);
+  const prevRegionCoordsRef = useRef<[number, number]>(activeRegion?.coordinates);
 
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
     mapRef.current.resize();
 
-    const isRegionChanged = prevRegionIdRef.current !== activeRegion?.id;
-    prevRegionIdRef.current = activeRegion?.id;
+    const isRegionIdChanged = prevRegionIdRef.current !== activeRegion?.id;
+    const isCoordsChanged =
+      !prevRegionCoordsRef.current ||
+      prevRegionCoordsRef.current[0] !== activeRegion?.coordinates[0] ||
+      prevRegionCoordsRef.current[1] !== activeRegion?.coordinates[1];
 
-    if (isRegionChanged) {
+    prevRegionIdRef.current = activeRegion?.id;
+    prevRegionCoordsRef.current = activeRegion?.coordinates;
+
+    if (isRegionIdChanged || isCoordsChanged) {
+      // Sync selected location ref so simultaneous easeTo does not cancel flyTo
+      prevSelectedLocationIdRef.current = selectedLocation?.id || null;
+
       if (activeRegion?.coordinates) {
         mapRef.current.flyTo({
           center: activeRegion.coordinates,
-          zoom: activeRegion.zoom || 11,
-          duration: 1000,
+          zoom: activeRegion.zoom || 11.5,
+          duration: 900,
           essential: true,
         });
       } else {
         const bounds = getBounds();
         if (bounds) {
-          mapRef.current.fitBounds(bounds, { padding: 40, maxZoom: activeRegion?.zoom || 11.5, animate: true, duration: 1000 });
+          mapRef.current.fitBounds(bounds, { padding: 40, maxZoom: activeRegion?.zoom || 11.5, animate: true, duration: 900 });
         }
       }
     }

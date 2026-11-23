@@ -60,19 +60,40 @@ export const AnalyticsPage: React.FC = () => {
     });
   }, [activeRegion, wards]);
 
-  // Fetch Official Govt SDRF Fiscal Allocations from Backend
+  // Fetch Official Govt SDRF Fiscal Allocations dynamically from Backend based on selected region/state
   useEffect(() => {
-    const regionKey = typeof activeRegion === 'string' ? activeRegion : (activeRegion?.id || 'kanpur');
-    fetch(`http://127.0.0.1:8000/api/relief-funds?regionId=${regionKey}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.fundDetails) {
-          setReliefFund(data);
+    const regionKey = typeof activeRegion === 'string'
+      ? activeRegion
+      : (activeRegion?.state || activeRegion?.name || activeRegion?.id || 'kanpur');
+
+    const fetchFund = async () => {
+      try {
+        const res = await fetch(`/api/relief-funds?regionId=${encodeURIComponent(regionKey)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.fundDetails) {
+            setReliefFund(data);
+            return;
+          }
         }
-      })
-      .catch((err) => {
-        console.error("Failed to load real SDRF fund allocation:", err);
-      });
+      } catch {
+        // Fallback below
+      }
+
+      try {
+        const res2 = await fetch(`http://127.0.0.1:8000/api/relief-funds?regionId=${encodeURIComponent(regionKey)}`);
+        if (res2.ok) {
+          const data2 = await res2.json();
+          if (data2 && data2.fundDetails) {
+            setReliefFund(data2);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load real SDRF fund allocation:', err);
+      }
+    };
+
+    fetchFund();
   }, [activeRegion]);
 
   if (loading) return <LoadingState message="Calculating thermal climate indices & population exposure..." />;
@@ -156,7 +177,7 @@ export const AnalyticsPage: React.FC = () => {
                   State Disaster Relief Fiscal Fund & Contingency Burn
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
-                  SEOC Authorization // State: <span className="text-amber-400 font-semibold">{reliefFund?.stateName || 'Uttar Pradesh'}</span> (Official SDRF Pool)
+                  SEOC Authorization // State: <span className="text-amber-400 font-semibold">{reliefFund?.stateName || activeRegion?.state || activeRegion?.name || 'National'}</span> (Official SDRF Pool)
                 </p>
               </div>
             </div>
@@ -167,47 +188,47 @@ export const AnalyticsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
             {/* Card 1: Official Sanctioned SDRF */}
-            <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.05]">
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">Total SDRF Allocation</span>
-              <div className="text-xl font-bold text-white mt-1">
-                ₹{reliefFund ? reliefFund.fundDetails.annualSanctionedSdrfCr.toLocaleString('en-IN') : '2,480.00'} Cr
+            <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.05] min-w-0 flex flex-col justify-between">
+              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block truncate">Total SDRF Allocation</span>
+              <div className="text-xl font-bold text-white mt-1 truncate">
+                ₹{reliefFund?.fundDetails ? reliefFund.fundDetails.annualSanctionedSdrfCr.toLocaleString('en-IN') : '...'} Cr
               </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                Central: {reliefFund?.fundDetails?.centralSharePct || 75}% | State: {reliefFund?.fundDetails?.stateSharePct || 25}%
+              <div className="text-[11px] text-slate-400 mt-0.5 truncate">
+                Central: {reliefFund?.fundDetails?.centralSharePct ?? 75}% | State: {reliefFund?.fundDetails?.stateSharePct ?? 25}%
               </div>
             </div>
 
             {/* Card 2: Disbursed Relief Burn */}
-            <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.05]">
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">Estimated Relief Burn</span>
-              <div className="text-xl font-bold text-amber-400 mt-1">
-                ₹{reliefFund ? reliefFund.fundDetails.simulatedReliefSpentCr : '29.76'} Cr
+            <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.05] min-w-0 flex flex-col justify-between">
+              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block truncate">Estimated Relief Burn</span>
+              <div className="text-xl font-bold text-amber-400 mt-1 truncate">
+                ₹{reliefFund?.fundDetails ? reliefFund.fundDetails.simulatedReliefSpentCr.toLocaleString('en-IN') : '...'} Cr
               </div>
-              <div className="text-[11px] text-amber-400/80 mt-0.5">
-                {reliefFund ? `${reliefFund.fundDetails.utilizationPct}% utilized across wards` : '12% seasonal baseline utilized'}
+              <div className="text-[11px] text-amber-400/80 mt-0.5 truncate">
+                {reliefFund?.fundDetails ? `${reliefFund.fundDetails.utilizationPct}% utilized across wards` : 'Calculating seasonal utilization...'}
               </div>
             </div>
 
             {/* Card 3: Heatwave Sub-Allocation Pool */}
-            <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.05]">
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">Heatwave Mitigation Pool</span>
-              <div className="text-xl font-bold text-emerald-400 mt-1">
-                ₹{reliefFund ? reliefFund.fundDetails.heatwaveContingencyPoolCr : '248.00'} Cr
+            <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.05] min-w-0 flex flex-col justify-between">
+              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block truncate">Heatwave Mitigation Pool</span>
+              <div className="text-xl font-bold text-emerald-400 mt-1 truncate">
+                ₹{reliefFund?.fundDetails ? reliefFund.fundDetails.heatwaveContingencyPoolCr.toLocaleString('en-IN') : '...'} Cr
               </div>
-              <div className="text-[11px] text-emerald-400/80 mt-0.5">
-                Remaining: ₹{reliefFund ? reliefFund.fundDetails.remainingBalanceCr : '218.24'} Cr
+              <div className="text-[11px] text-emerald-400/80 mt-0.5 truncate">
+                Remaining: ₹{reliefFund?.fundDetails ? reliefFund.fundDetails.remainingBalanceCr.toLocaleString('en-IN') : '...'} Cr
               </div>
             </div>
 
             {/* Card 4: Daily Burn Rate */}
-            <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.05]">
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">Daily Contingency Burn</span>
-              <div className="text-xl font-bold text-sky-400 mt-1">
-                ₹{reliefFund ? reliefFund.fundDetails.dailyBurnRateLakhs : '2.50'} L/day
+            <div className="bg-[#13141a] p-4 rounded-2xl border border-white/[0.05] min-w-0 flex flex-col justify-between">
+              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block truncate">Daily Contingency Burn</span>
+              <div className="text-xl font-bold text-sky-400 mt-1 truncate">
+                ₹{reliefFund?.fundDetails ? (typeof reliefFund.fundDetails.dailyBurnRateLakhs === 'number' ? reliefFund.fundDetails.dailyBurnRateLakhs.toFixed(2) : reliefFund.fundDetails.dailyBurnRateLakhs) : '2.50'} L/day
               </div>
-              <div className="text-[11px] text-sky-400/80 mt-0.5">
+              <div className="text-[11px] text-sky-400/80 mt-0.5 truncate">
                 Real UTCI Index Derived: {reliefFund?.weatherMetrics?.utci || 27.4}°C
               </div>
             </div>

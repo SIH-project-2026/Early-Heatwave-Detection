@@ -11,7 +11,7 @@ load_dotenv()
 
 router = APIRouter(prefix="/api", tags=["Weather & Forecast"])
 
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY") or os.getenv("WEATHER_API_KEY") or os.getenv("VITE_WEATHER_API_KEY")
 OPENWEATHER_BASE_URL = os.getenv("OPENWEATHER_BASE_URL", "https://api.openweathermap.org/data/2.5")
 
 REGION_COORDS: Dict[str, tuple[float, float]] = {

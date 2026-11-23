@@ -14,7 +14,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Bot,
-  Sparkles,
   X,
   LogOut,
 } from 'lucide-react';
@@ -307,19 +306,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Scrollable Nav Content */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-3 scrollbar-none">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden py-3.5 space-y-4 sm:space-y-4.5 scrollbar-none">
           {/* Search Box Input (with ⌘K Badge) */}
           {!isCollapsed ? (
-            <div className="px-3">
+            <div className="px-3 pb-0.5">
               <div className="relative flex items-center w-full">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search"
                   value={sidebarSearch}
                   onChange={(e) => setSidebarSearch(e.target.value)}
-                  className="w-full bg-[#13141a] border border-white/[0.06] rounded-xl pl-8 pr-11 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 focus:bg-[#16171f] transition-all font-sans"
+                  className="w-full bg-[#13141a] border border-white/[0.06] rounded-xl pl-9 pr-11 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 focus:bg-[#16171f] transition-all font-sans"
                 />
                 {sidebarSearch ? (
                   <button
@@ -329,7 +328,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <X className="w-3 h-3" />
                   </button>
                 ) : (
-                  <kbd className="absolute right-2 px-1.5 py-0.5 rounded bg-[#181920] border border-white/[0.08] text-[9px] font-mono text-slate-400 font-bold pointer-events-none">
+                  <kbd className="absolute right-2.5 px-1.5 py-0.5 rounded bg-[#181920] border border-white/[0.08] text-[9px] font-mono text-slate-400 font-bold pointer-events-none">
                     ⌘K
                   </kbd>
                 )}
@@ -349,14 +348,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Root Item: Role-Specific Command Deck (with Cyan Active Indicator Bar on Left) */}
           {matchesSearch(currentRoleNav.rootLabel) && (
-            <div className="px-2.5">
+            <div className="px-3">
               <NavLink
                 to="/dashboard"
                 end
                 onClick={onCloseMobile}
                 className={({ isActive }) =>
                   `group relative flex items-center rounded-xl text-xs sm:text-sm transition-all ${
-                    isCollapsed ? 'justify-center p-3' : 'px-3 py-2.5'
+                    isCollapsed ? 'justify-center p-3.5' : 'px-3.5 py-2.5 sm:py-3'
                   } ${
                     isActive
                       ? 'bg-[#181920] text-white font-bold border border-white/[0.08] shadow-md card-highlight-rim'
@@ -397,194 +396,194 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {/* SECTION 1: ROLE-SPECIFIC OPERATIONS */}
-          <div className="space-y-1 pt-1">
+          <div className="space-y-1.5 sm:space-y-2 pt-2 sm:pt-2.5">
             {!isCollapsed ? (
-              <div className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-widest text-slate-400 uppercase select-none">
+              <div className="px-4.5 pt-2 pb-1 text-[10px] sm:text-[11px] font-bold font-mono tracking-widest text-slate-400 uppercase select-none">
                 {currentRoleNav.section1Title}
               </div>
             ) : (
               <div className="w-8 h-[1px] bg-white/[0.06] mx-auto my-2" />
             )}
 
-            {operationsNav
-              .filter((item) => matchesSearch(item.name))
-              .map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.path} className="px-2.5">
-                    <NavLink
-                      to={item.path}
-                      onClick={onCloseMobile}
-                      className={({ isActive }) =>
-                        `group relative flex items-center justify-between rounded-xl text-xs sm:text-sm transition-all ${
-                          isCollapsed ? 'justify-center p-3' : 'px-3 py-2.5'
-                        } ${
-                          isActive
-                            ? 'bg-[#181920] text-white font-bold border border-white/[0.08] shadow-md card-highlight-rim'
-                            : 'text-slate-300 hover:text-white hover:bg-[#181920]/40 border border-transparent font-medium'
-                        }`
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          {/* Cyan Active Left Highlight Strip */}
-                          {isActive && (
-                            <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]" />
-                          )}
-
-                          <div className="flex items-center space-x-3 min-w-0">
-                            <Icon
-                              className={`w-4 h-4 shrink-0 transition-colors ${
-                                isActive ? 'text-sky-400' : `text-slate-400 ${item.iconColor}`
-                              }`}
-                            />
-                            {!isCollapsed && (
-                              <span className="leading-snug tracking-tight font-sans text-xs sm:text-[13px] line-clamp-2 break-words">
-                                {item.name}
-                              </span>
+            <div className="space-y-1.5 sm:space-y-2">
+              {operationsNav
+                .filter((item) => matchesSearch(item.name))
+                .map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.path} className="px-3">
+                      <NavLink
+                        to={item.path}
+                        onClick={onCloseMobile}
+                        className={({ isActive }) =>
+                          `group relative flex items-center justify-between rounded-xl text-xs sm:text-sm transition-all ${
+                            isCollapsed ? 'justify-center p-3.5' : 'px-3.5 py-2.5 sm:py-3'
+                          } ${
+                            isActive
+                              ? 'bg-[#181920] text-white font-bold border border-white/[0.08] shadow-md card-highlight-rim'
+                              : 'text-slate-300 hover:text-white hover:bg-[#181920]/40 border border-transparent font-medium'
+                          }`
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            {/* Cyan Active Left Highlight Strip */}
+                            {isActive && (
+                              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]" />
                             )}
-                          </div>
 
-                          {!isCollapsed && (
-                            <div className="flex items-center space-x-1.5 shrink-0">
-                              {item.badge ? (
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                                    item.badgeColor || 'bg-[#181920] border border-white/[0.08] text-slate-300'
-                                  }`}
-                                >
-                                  {item.badge}
+                            <div className="flex items-center space-x-3 min-w-0">
+                              <Icon
+                                className={`w-4 h-4 shrink-0 transition-colors ${
+                                  isActive ? 'text-sky-400' : `text-slate-400 ${item.iconColor}`
+                                }`}
+                              />
+                              {!isCollapsed && (
+                                <span className="leading-snug tracking-tight font-sans text-xs sm:text-[13px] line-clamp-2 break-words">
+                                  {item.name}
                                 </span>
-                              ) : (
-                                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
                               )}
                             </div>
-                          )}
 
-                          {isCollapsed && (
-                            <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 hidden group-hover:flex items-center px-3 py-1.5 text-xs font-bold text-white bg-[#181920] border border-white/[0.08] rounded-xl shadow-2xl whitespace-nowrap pointer-events-none">
-                              {item.name} {item.badge && `(${item.badge})`}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </NavLink>
-                  </div>
-                );
-              })}
+                            {!isCollapsed && (
+                              <div className="flex items-center space-x-1.5 shrink-0">
+                                {item.badge ? (
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                                      item.badgeColor || 'bg-[#181920] border border-white/[0.08] text-slate-300'
+                                    }`}
+                                  >
+                                    {item.badge}
+                                  </span>
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                                )}
+                              </div>
+                            )}
+
+                            {isCollapsed && (
+                              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 hidden group-hover:flex items-center px-3 py-1.5 text-xs font-bold text-white bg-[#181920] border border-white/[0.08] rounded-xl shadow-2xl whitespace-nowrap pointer-events-none">
+                                {item.name} {item.badge && `(${item.badge})`}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </NavLink>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
 
           {/* SECTION 2: ROLE-SPECIFIC ADMINISTRATION */}
-          <div className="space-y-1 pt-2">
+          <div className="space-y-1.5 sm:space-y-2 pt-3 sm:pt-4">
             {!isCollapsed ? (
-              <div className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-widest text-slate-400 uppercase select-none">
+              <div className="px-4.5 pt-2 pb-1 text-[10px] sm:text-[11px] font-bold font-mono tracking-widest text-slate-400 uppercase select-none">
                 {currentRoleNav.section2Title}
               </div>
             ) : (
               <div className="w-8 h-[1px] bg-white/[0.06] mx-auto my-2" />
             )}
 
-            {systemNav
-              .filter((item) => matchesSearch(item.name))
-              .map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.path} className="px-2.5">
-                    <NavLink
-                      to={item.path}
-                      onClick={onCloseMobile}
-                      className={({ isActive }) =>
-                        `group relative flex items-center justify-between rounded-xl text-xs sm:text-sm transition-all ${
-                          isCollapsed ? 'justify-center p-3' : 'px-3 py-2.5'
-                        } ${
-                          isActive
-                            ? 'bg-[#181920] text-white font-bold border border-white/[0.08] shadow-md card-highlight-rim'
-                            : 'text-slate-300 hover:text-white hover:bg-[#181920]/40 border border-transparent font-medium'
-                        }`
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          {/* Cyan Active Left Highlight Strip */}
-                          {isActive && (
-                            <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]" />
-                          )}
-
-                          <div className="flex items-center space-x-3 min-w-0">
-                            <Icon
-                              className={`w-4 h-4 shrink-0 transition-colors ${
-                                isActive ? 'text-sky-400' : `text-slate-400 ${item.iconColor}`
-                              }`}
-                            />
-                            {!isCollapsed && (
-                              <span className="leading-snug tracking-tight font-sans text-xs sm:text-[13px] line-clamp-2 break-words">
-                                {item.name}
-                              </span>
+            <div className="space-y-1.5 sm:space-y-2">
+              {systemNav
+                .filter((item) => matchesSearch(item.name))
+                .map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.path} className="px-3">
+                      <NavLink
+                        to={item.path}
+                        onClick={onCloseMobile}
+                        className={({ isActive }) =>
+                          `group relative flex items-center justify-between rounded-xl text-xs sm:text-sm transition-all ${
+                            isCollapsed ? 'justify-center p-3.5' : 'px-3.5 py-2.5 sm:py-3'
+                          } ${
+                            isActive
+                              ? 'bg-[#181920] text-white font-bold border border-white/[0.08] shadow-md card-highlight-rim'
+                              : 'text-slate-300 hover:text-white hover:bg-[#181920]/40 border border-transparent font-medium'
+                          }`
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            {/* Cyan Active Left Highlight Strip */}
+                            {isActive && (
+                              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.7)]" />
                             )}
-                          </div>
 
-                          {!isCollapsed && (
-                            <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors shrink-0" />
-                          )}
-
-                          {isCollapsed && (
-                            <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 hidden group-hover:flex items-center px-3 py-1.5 text-xs font-bold text-white bg-[#181920] border border-white/[0.08] rounded-xl shadow-2xl whitespace-nowrap pointer-events-none">
-                              {item.name}
+                            <div className="flex items-center space-x-3 min-w-0">
+                              <Icon
+                                className={`w-4 h-4 shrink-0 transition-colors ${
+                                  isActive ? 'text-sky-400' : `text-slate-400 ${item.iconColor}`
+                                }`}
+                              />
+                              {!isCollapsed && (
+                                <span className="leading-snug tracking-tight font-sans text-xs sm:text-[13px] line-clamp-2 break-words">
+                                  {item.name}
+                                </span>
+                              )}
                             </div>
-                          )}
-                        </>
-                      )}
-                    </NavLink>
-                  </div>
-                );
-              })}
 
-            {/* Item 3: Ask AI Assistant */}
-            {matchesSearch('AI Assistant') && (
-              <div className="px-2.5 pt-1">
-                <button
-                  onClick={() => {
-                    setIsAgentChatOpen(true);
-                    onCloseMobile();
-                  }}
-                  className={`w-full group flex items-center justify-between rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer ${
-                    isCollapsed ? 'justify-center p-3' : 'px-3 py-2.5'
-                  } bg-[#13141a] hover:bg-[#181920] text-slate-300 hover:text-white border border-white/[0.06] hover:border-sky-500/30`}
-                  title="Ask AI Assistant"
-                >
-                  <div className="flex items-center space-x-3 min-w-0">
-                    <Bot className="w-4 h-4 text-sky-400 shrink-0 group-hover:scale-110 transition-transform" />
-                    {!isCollapsed && (
-                      <span className="leading-snug tracking-tight font-sans font-medium text-xs sm:text-[13px] line-clamp-2 break-words">
-                        {t('askAiAgent', 'Ask AI Assistant')}
-                      </span>
-                    )}
-                  </div>
+                            {!isCollapsed && (
+                              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors shrink-0" />
+                            )}
 
-                  {!isCollapsed && (
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0 animate-pulse" />
-                  )}
-
-                  {isCollapsed && (
-                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 hidden group-hover:flex items-center px-3 py-1.5 text-xs font-bold text-white bg-[#181920] border border-white/[0.08] rounded-xl shadow-2xl whitespace-nowrap pointer-events-none">
-                      {t('askAiAgent', 'Ask AI Assistant')}
+                            {isCollapsed && (
+                              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 hidden group-hover:flex items-center px-3 py-1.5 text-xs font-bold text-white bg-[#181920] border border-white/[0.08] rounded-xl shadow-2xl whitespace-nowrap pointer-events-none">
+                                {item.name}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </NavLink>
                     </div>
-                  )}
-                </button>
-              </div>
-            )}
+                  );
+                })}
+
+              {/* Item 3: Ask AI Assistant */}
+              {matchesSearch('AI Assistant') && (
+                <div className="px-3 pt-1">
+                  <button
+                    onClick={() => {
+                      setIsAgentChatOpen(true);
+                      onCloseMobile();
+                    }}
+                    className={`w-full group flex items-center justify-between rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                      isCollapsed ? 'justify-center p-3.5' : 'px-3.5 py-2.5 sm:py-3'
+                    } bg-[#13141a] hover:bg-[#181920] text-slate-300 hover:text-white border border-white/[0.06] hover:border-sky-500/30`}
+                    title="Ask AI Assistant"
+                  >
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <Bot className="w-4 h-4 text-sky-400 shrink-0 group-hover:scale-110 transition-transform" />
+                      {!isCollapsed && (
+                        <span className="leading-snug tracking-tight font-sans font-medium text-xs sm:text-[13px] line-clamp-2 break-words">
+                          {t('askAiAgent', 'Ask AI Assistant')}
+                        </span>
+                      )}
+                    </div>
+
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 hidden group-hover:flex items-center px-3 py-1.5 text-xs font-bold text-white bg-[#181920] border border-white/[0.08] rounded-xl shadow-2xl whitespace-nowrap pointer-events-none">
+                        {t('askAiAgent', 'Ask AI Assistant')}
+                      </div>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Sidebar Language Switcher */}
         {!isCollapsed && (
-          <div className="px-3 pb-2 shrink-0">
+          <div className="px-3.5 pt-3 pb-2 shrink-0">
             <LanguageSelector variant="sidebar" />
           </div>
         )}
 
         {/* BOTTOM USER PROFILE CARD (Exact "Dana Castellanos / Operations Controller" Layout) */}
-        <div className="p-3 border-t border-white/[0.06] shrink-0">
+        <div className="p-3 sm:p-3.5 border-t border-white/[0.06] shrink-0">
           <div
             onClick={() => {
               navigate('/settings');
@@ -592,8 +591,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
             className={`group relative flex items-center rounded-xl transition-all cursor-pointer ${
               isCollapsed
-                ? 'justify-center p-2'
-                : 'p-2 space-x-3 hover:bg-[#181920] border border-transparent hover:border-white/[0.06]'
+                ? 'justify-center p-2.5'
+                : 'p-2.5 sm:p-3 space-x-3.5 hover:bg-[#181920] border border-transparent hover:border-white/[0.06]'
             } ${
               location.pathname === '/settings'
                 ? 'bg-[#181920] text-white border-white/[0.08] shadow-md ring-1 ring-sky-400/40'
@@ -607,7 +606,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
 
             {/* Avatar Squircle with Dynamic Initials */}
-            <div className={`w-8.5 h-8.5 rounded-xl bg-gradient-to-br ${user?.avatarGradient || 'from-amber-500 via-sky-600 to-indigo-600'} border border-amber-500/40 text-amber-300 font-bold flex items-center justify-center font-mono text-xs shadow-sm shrink-0`}>
+            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${user?.avatarGradient || 'from-amber-500 via-sky-600 to-indigo-600'} border border-amber-500/40 text-amber-300 font-bold flex items-center justify-center font-mono text-xs sm:text-sm shadow-sm shrink-0`}>
               {user?.initials || 'HW'}
             </div>
 
@@ -615,13 +614,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
                 <h4
-                  className={`text-xs font-semibold tracking-tight truncate transition-colors font-sans ${
+                  className={`text-xs sm:text-[13px] font-semibold tracking-tight truncate transition-colors font-sans ${
                     location.pathname === '/settings' ? 'text-sky-300' : 'text-white group-hover:text-sky-300'
                   }`}
                 >
                   {user?.name || 'HeatWave Commander'}
                 </h4>
-                <p className="text-[10px] text-slate-400 truncate font-normal">
+                <p className="text-[10px] sm:text-[11px] text-slate-400 truncate font-normal mt-0.5">
                   {user?.role || 'Operations Commander'}
                 </p>
               </div>

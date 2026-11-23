@@ -56,11 +56,19 @@ export function getAqiCategory(aqi: number): { status: LivePollutionData['status
 const pollutionCache = new Map<string, { data: LivePollutionData; expires: number }>();
 const POLLUTION_CACHE_TTL = 2 * 60 * 1000;
 
-export async function fetchLivePollutionForCoords(lat: number, lng: number): Promise<LivePollutionData> {
+export async function fetchLivePollutionForCoords(
+  lat: number,
+  lng: number,
+  forceRefresh: boolean = false
+): Promise<LivePollutionData> {
   const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  const cached = pollutionCache.get(cacheKey);
-  if (cached && Date.now() < cached.expires) {
-    return cached.data;
+  if (!forceRefresh) {
+    const cached = pollutionCache.get(cacheKey);
+    if (cached && Date.now() < cached.expires) {
+      return cached.data;
+    }
+  } else {
+    pollutionCache.delete(cacheKey);
   }
 
   // 1. Fetch Open-Meteo Satellite Air Quality API

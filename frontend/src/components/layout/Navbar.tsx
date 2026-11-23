@@ -8,7 +8,6 @@ import {
   MapPin,
   Search,
   Bot,
-  Sparkles,
   Sun,
   Moon,
   X,
@@ -201,7 +200,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, isCollaps
           >
             <Bot className="w-4 h-4 text-sky-400" />
             <span className="hidden lg:inline">{t('askAi', 'ASK AI')}</span>
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
           </button>
 
           {/* Reference Pill Theme Toggle Switch (Crescent Moon Slider) */}
