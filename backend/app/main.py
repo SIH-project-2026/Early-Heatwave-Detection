@@ -10,7 +10,6 @@ from app.db.seed import seed_database
 from app.routers import weather, alerts, resources, wards, risk_forecast, agent
 import os
 
-# Path to the compiled React frontend (copied here by build.sh)
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static")
 
 @asynccontextmanager
@@ -41,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Mount all API routers FIRST (before static files) ────────
+# ── Mount all API routers FIRST ───────────────────────────────
 app.include_router(weather.router)
 app.include_router(alerts.router)
 app.include_router(resources.router)
@@ -50,9 +49,8 @@ app.include_router(risk_forecast.router)
 app.include_router(agent.router)
 app.include_router(finance.router)
 
-@app.get("/")
 @app.get("/api")
-def root():
+def api_root():
     return {
         "status": "online",
         "service": "Heatwave Early Warning System API",
@@ -71,22 +69,26 @@ async def health():
     }
 
 # ── Serve React Frontend Static Files ────────────────────────
-# Only mounts if frontend was built (exists in backend/static/)
 if os.path.isdir(STATIC_DIR):
-    # Serve compiled JS/CSS/images from /assets
     assets_dir = os.path.join(STATIC_DIR, "assets")
     if os.path.isdir(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    # Catch-all: serve index.html for all non-API routes (React Router SPA)
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def serve_react_app(full_path: str):
-        # Try to serve the actual file first (favicon, logo, etc.)
-        requested_file = os.path.join(STATIC_DIR, full_path)
-        if os.path.isfile(requested_file):
-            return FileResponse(requested_file)
-        # For all other paths, serve index.html (React Router handles routing)
+    # Root route: serve React frontend index.html
+    @app.get("/", include_in_schema=False)
+    async def serve_root():
         index_file = os.path.join(STATIC_DIR, "index.html")
         if os.path.isfile(index_file):
             return FileResponse(index_file)
-        return {"error": "Frontend not found. Run build.sh first."}
+        return {"status": "online", "docs": "/docs"}
+
+    # Catch-all: serve static files or fallback to index.html for React Router SPA
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_react_app(full_path: str):
+        requested_file = os.path.join(STATIC_DIR, full_path)
+        if os.path.isfile(requested_file):
+            return FileResponse(requested_file)
+        index_file = os.path.join(STATIC_DIR, "index.html")
+        if os.path.isfile(index_file):
+            return FileResponse(index_file)
+        return {"error": "Frontend not found."}
