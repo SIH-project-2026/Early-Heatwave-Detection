@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Maximize2,
   Minimize2,
+  ArrowLeft,
 } from 'lucide-react';
 
 export interface SupportedLanguage {
@@ -699,17 +700,27 @@ export const AgentChat: React.FC = () => {
             }`}
           >
             {/* Modal Header */}
-            <div className="p-3.5 sm:p-4 bg-[#08090c] border-b border-white/[0.06] flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400 shadow-md">
+            <div className="p-3.5 sm:p-4 bg-[#08090c] border-b border-white/[0.06] flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setIsAgentChatOpen(false)}
+                  className="px-2.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/[0.08] text-xs font-semibold flex items-center space-x-1 transition-all cursor-pointer shrink-0"
+                  title={selectedLanguage === 'hi' ? 'वापस जाएं' : 'Back'}
+                  aria-label="Back"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>{selectedLanguage === 'hi' ? 'वापस' : 'Back'}</span>
+                </button>
+                <div className="hidden sm:flex p-2.5 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400 shadow-md shrink-0">
                   <Bot className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                <div className="min-w-0">
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider truncate">
                       {selectedLanguage === 'hi' ? 'रीयल-टाइम मौसम एआई सहायक' : 'Real-Time Weather AI Assistant'}
                     </h3>
-                    <span className="px-2 py-0.5 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    <span className="hidden md:inline-block px-2 py-0.5 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
                       {selectedLanguage === 'hi' ? 'लाइव सहायक' : 'LIVE AGENT'}
                     </span>
                   </div>
