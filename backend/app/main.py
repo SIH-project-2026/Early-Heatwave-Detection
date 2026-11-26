@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.db.mongodb import ping_database
 from app.db.seed import seed_database
-from app.routers import weather, alerts, resources, wards, risk_forecast, agent
+from app.routers import weather, alerts, resources, wards, risk_forecast, agent, auth
 import os
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static")
@@ -48,6 +48,7 @@ app.include_router(wards.router)
 app.include_router(risk_forecast.router)
 app.include_router(agent.router)
 app.include_router(finance.router)
+app.include_router(auth.router)
 
 @app.get("/api")
 def api_root():

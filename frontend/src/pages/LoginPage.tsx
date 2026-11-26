@@ -13,16 +13,68 @@ import {
   Moon,
   AlertCircle,
   CheckCircle2,
+  UserPlus,
   X,
 } from 'lucide-react';
 
+const AUTOFILL_CREDS_KEY = 'heatwave_autofill_creds';
+const AUTOFILL_ENABLED_KEY = 'heatwave_autofill_enabled';
+
+function loadSavedAutofill(): { username: string; password: string } | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    if (localStorage.getItem(AUTOFILL_ENABLED_KEY) === 'false') return null;
+    const raw = localStorage.getItem(AUTOFILL_CREDS_KEY);
+    if (!raw) return null;
+    const bin = atob(raw);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const parsed = JSON.parse(new TextDecoder().decode(bytes));
+    if (parsed && typeof parsed.username === 'string' && typeof parsed.password === 'string') {
+      return parsed;
+    }
+  } catch {}
+  return null;
+}
+
+function saveAutofillCreds(username: string, password: string) {
+  try {
+    const bytes = new TextEncoder().encode(JSON.stringify({ username, password }));
+    let bin = '';
+    bytes.forEach((b) => {
+      bin += String.fromCharCode(b);
+    });
+    localStorage.setItem(AUTOFILL_CREDS_KEY, btoa(bin));
+    localStorage.setItem(AUTOFILL_ENABLED_KEY, 'true');
+  } catch {}
+}
+
+function clearAutofillCreds(disableFlag = true) {
+  try {
+    localStorage.removeItem(AUTOFILL_CREDS_KEY);
+    if (disableFlag) {
+      localStorage.setItem(AUTOFILL_ENABLED_KEY, 'false');
+    }
+  } catch {}
+}
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, register, isAuthenticated } = useAuth();
   const { resolvedTheme, toggleTheme } = useTheme();
 
-  const [username, setUsername] = useState('commander');
-  const [password, setPassword] = useState('ndma@2026');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [savedInitial] = useState(() => loadSavedAutofill());
+  const [username, setUsername] = useState(() => savedInitial?.username || '');
+  const [password, setPassword] = useState(() => savedInitial?.password || '');
+  const [rememberMe, setRememberMe] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(AUTOFILL_ENABLED_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [wasAutofilled, setWasAutofilled] = useState<boolean>(() => Boolean(savedInitial));
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -34,38 +86,117 @@ export const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleCredentialsSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    if (!username.trim()) {
-      setErrorMessage('Please enter your username.');
-      return;
+  const persistAutofillPreference = (uname: string, pwd: string) => {
+    if (rememberMe) {
+      saveAutofillCreds(uname, pwd);
+    } else {
+      clearAutofillCreds(true);
     }
-    if (!password.trim()) {
-      setErrorMessage('Please enter your password.');
-      return;
-    }
+  };
 
-    setIsLoading(true);
-
-    // Pre-prompt browser geolocation on password submit
+  const triggerGeoPrePrompt = () => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
       try {
         navigator.geolocation.getCurrentPosition(() => {}, () => {}, { timeout: 3000 });
       } catch {}
     }
+  };
+
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setShowQuickCreate(false);
+
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername) {
+      setErrorMessage('Please enter your username.');
+      return;
+    }
+    if (!password) {
+      setErrorMessage('Please enter your password.');
+      return;
+    }
+    if (authMode === 'register' && password.length < 4) {
+      setErrorMessage('Password must be at least 4 characters long.');
+      return;
+    }
+
+    setIsLoading(true);
+    triggerGeoPrePrompt();
 
     try {
-      await new Promise((r) => setTimeout(r, 450));
-      const authEmail = username.includes('@') ? username : `${username}@ndma.gov.in`;
-      await login({ email: authEmail, password, officerId: 'NDMA-HQ-2026' });
+      const authEmail = trimmedUsername.includes('@') ? trimmedUsername : `${trimmedUsername}@ndma.gov.in`;
+      if (authMode === 'register') {
+        await register({
+          username: trimmedUsername,
+          password,
+          email: authEmail,
+          officerId: 'HW-HQ-2026',
+        });
+      } else {
+        await login({
+          username: trimmedUsername,
+          email: authEmail,
+          password,
+          officerId: 'HW-HQ-2026',
+        });
+      }
+      persistAutofillPreference(trimmedUsername, password);
       sessionStorage.setItem('just_logged_in_detect_gps', 'true');
       navigate('/dashboard', { replace: true });
-    } catch {
-      setErrorMessage('Authentication clearance failed. Please re-verify your credentials.');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      if (status === 404 && authMode === 'login') {
+        setErrorMessage(`Account "${trimmedUsername}" is not registered in the database yet.`);
+        setShowQuickCreate(true);
+      } else if (detail) {
+        setErrorMessage(detail);
+      } else {
+        setErrorMessage('Authentication clearance failed. Please verify your connection and credentials.');
+      }
       setIsLoading(false);
     }
+  };
+
+  const handleQuickCreateAccount = async () => {
+    const trimmedUsername = username.trim();
+    if (trimmedUsername.length < 2) {
+      setErrorMessage('Username must be at least 2 characters long.');
+      return;
+    }
+    if (password.length < 4) {
+      setErrorMessage('Password must be at least 4 characters long to save in database.');
+      return;
+    }
+
+    setErrorMessage(null);
+    setShowQuickCreate(false);
+    setIsLoading(true);
+    triggerGeoPrePrompt();
+
+    try {
+      const authEmail = trimmedUsername.includes('@') ? trimmedUsername : `${trimmedUsername}@ndma.gov.in`;
+      await register({
+        username: trimmedUsername,
+        password,
+        email: authEmail,
+        officerId: 'HW-HQ-2026',
+      });
+      persistAutofillPreference(trimmedUsername, password);
+      sessionStorage.setItem('just_logged_in_detect_gps', 'true');
+      navigate('/dashboard', { replace: true });
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.detail || 'Could not create account in database.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleClearAutofill = () => {
+    clearAutofillCreds(false);
+    setUsername('');
+    setPassword('');
+    setWasAutofilled(false);
   };
 
   return (
@@ -158,11 +289,75 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Sign In / Create Account Mode Switcher */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#0e111a] border border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setErrorMessage(null);
+                  setShowQuickCreate(false);
+                }}
+                className={`py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                  authMode === 'login'
+                    ? 'bg-[#1b202e] text-white border border-white/[0.08] shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('register');
+                  setErrorMessage(null);
+                  setShowQuickCreate(false);
+                }}
+                className={`py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
+                  authMode === 'register'
+                    ? 'bg-[#1b202e] text-amber-400 border border-amber-500/30 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Create Account</span>
+              </button>
+            </div>
+
+            {/* Autofilled Credentials Indicator */}
+            {wasAutofilled && (
+              <div className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] flex items-center justify-between">
+                <span className="flex items-center space-x-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>Saved password autofilled</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearAutofill}
+                  className="text-slate-400 hover:text-white underline cursor-pointer ml-2"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
             {/* Error Message Alert */}
             {errorMessage && (
-              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs flex items-center space-x-2 animate-in fade-in duration-200">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{errorMessage}</span>
+              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs space-y-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+                {showQuickCreate && (
+                  <button
+                    type="button"
+                    onClick={handleQuickCreateAccount}
+                    className="w-full py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center space-x-1.5"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Save Password &amp; Create Account</span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -180,16 +375,22 @@ export const LoginPage: React.FC = () => {
             )}
 
             {/* Form */}
-            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+            <form method="post" onSubmit={handleCredentialsSubmit} className="space-y-4">
               {/* Username Input Field */}
               <div className="relative rounded-2xl bg-[#1b202e] border border-white/[0.08] focus-within:border-cyan-500/50 transition-all overflow-hidden shadow-inner">
                 <div className="flex items-center px-4 py-3.5">
                   <User className="w-4 h-4 text-slate-400 shrink-0 mr-3" />
                   <input
+                    id="username"
+                    name="username"
                     type="text"
+                    autoComplete="username"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Username"
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      if (wasAutofilled) setWasAutofilled(false);
+                    }}
+                    placeholder={authMode === 'register' ? 'Choose Username' : 'Enter Username'}
                     required
                     className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none font-sans"
                   />
@@ -204,10 +405,16 @@ export const LoginPage: React.FC = () => {
                   <div className="flex items-center px-4 py-3.5">
                     <Lock className="w-4 h-4 text-slate-400 shrink-0 mr-3" />
                     <input
+                      id="password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (wasAutofilled) setWasAutofilled(false);
+                      }}
+                      placeholder={authMode === 'register' ? 'Create Password (min 4 chars)' : 'Enter Password'}
                       required
                       className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none font-mono tracking-widest"
                     />
@@ -229,8 +436,28 @@ export const LoginPage: React.FC = () => {
                   <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400/80 to-amber-500/70" />
                 </div>
 
-                {/* Forgot Password Link */}
-                <div className="flex justify-end pt-1">
+                {/* Autofill Option & Forgot Password Link */}
+                <div className="flex items-center justify-between pt-1.5">
+                  <label className="flex items-center space-x-2 text-xs text-slate-300 hover:text-white cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setRememberMe(checked);
+                        if (!checked) {
+                          clearAutofillCreds(true);
+                          setWasAutofilled(false);
+                        } else {
+                          try {
+                            localStorage.setItem(AUTOFILL_ENABLED_KEY, 'true');
+                          } catch {}
+                        }
+                      }}
+                      className="w-3.5 h-3.5 rounded border-white/20 bg-[#1b202e] accent-amber-500 cursor-pointer"
+                    />
+                    <span>Autofill next visit</span>
+                  </label>
                   <button
                     type="button"
                     onClick={() => setForgotNotice(true)}
@@ -250,10 +477,10 @@ export const LoginPage: React.FC = () => {
                 {isLoading ? (
                   <span className="flex items-center space-x-2">
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>AUTHENTICATING...</span>
+                    <span>{authMode === 'register' ? 'SAVING TO DATABASE...' : 'AUTHENTICATING...'}</span>
                   </span>
                 ) : (
-                  <span>LOGIN</span>
+                  <span>{authMode === 'register' ? 'CREATE ACCOUNT & LOGIN' : 'LOGIN'}</span>
                 )}
               </button>
             </form>
