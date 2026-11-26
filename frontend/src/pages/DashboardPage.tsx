@@ -44,6 +44,7 @@ export const DashboardPage: React.FC = () => {
     refreshData,
     dispatchResource,
     resources,
+    detectAndApplyUserLocation,
   } = useHeatwave();
 
   const { user } = useAuth();
@@ -61,7 +62,6 @@ export const DashboardPage: React.FC = () => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3800);
   };
-
   // Ensure an active ward is selected (respect active riskFilter when set, or default to first severe/high/moderate ward)
   const activeWard = useMemo<Ward | null>(() => {
     if (!wards || wards.length === 0) return null;
@@ -97,6 +97,22 @@ export const DashboardPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [activeTab]);
+
+  // Auto-detect live user location right after login or initial dashboard entry
+  useEffect(() => {
+    const isLoginTrigger = sessionStorage.getItem('just_logged_in_detect_gps') === 'true';
+    const isFirstSessionCheck = !sessionStorage.getItem('session_gps_checked') && activeRegion?.id === 'guwahati';
+
+    if (isLoginTrigger || isFirstSessionCheck) {
+      sessionStorage.removeItem('just_logged_in_detect_gps');
+      sessionStorage.setItem('session_gps_checked', 'true');
+      detectAndApplyUserLocation().then((success) => {
+        if (success) {
+          triggerToast('📍 Live location detect ho gayi aur area telemetry sync ho gayi!');
+        }
+      });
+    }
+  }, [detectAndApplyUserLocation, activeRegion?.id]);
 
   // Computed summary metrics
   const liveSevereCount = wards?.filter((w) => w.currentMetrics?.riskLevel === 'SEVERE').length || 0;
@@ -262,11 +278,10 @@ export const DashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('command_center')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 cursor-pointer ${
-                activeTab === 'command_center'
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 cursor-pointer ${activeTab === 'command_center'
                   ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md font-semibold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               <Radio className="w-4 h-4" />
               <span>Command Deck</span>
@@ -275,11 +290,10 @@ export const DashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('weather_forecast')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 cursor-pointer ${
-                activeTab === 'weather_forecast'
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 cursor-pointer ${activeTab === 'weather_forecast'
                   ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md font-semibold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               <Sun className="w-4 h-4" />
               <span>7-Day Weather</span>
@@ -300,11 +314,10 @@ export const DashboardPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleStep1Click}
-                className={`relative p-3.5 sm:p-4 rounded-2xl flex items-center space-x-3 text-left transition-all cursor-pointer border ${
-                  activeWorkflowStep === 1
+                className={`relative p-3.5 sm:p-4 rounded-2xl flex items-center space-x-3 text-left transition-all cursor-pointer border ${activeWorkflowStep === 1
                     ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-500/15 dark:to-orange-500/15 border-amber-300 dark:border-amber-500/40 shadow-sm'
                     : 'bg-slate-50 dark:bg-[#12151f] hover:bg-slate-100 dark:hover:bg-[#181920] border-slate-200/80 dark:border-white/[0.06]'
-                }`}
+                  }`}
               >
                 <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500 text-white font-mono font-bold text-xs sm:text-sm flex items-center justify-center shrink-0 shadow-sm">
                   1.
@@ -316,17 +329,16 @@ export const DashboardPage: React.FC = () => {
                   <div className="flex items-center justify-between gap-2 mt-1">
                     <div className="text-xs font-mono font-bold flex items-center space-x-1.5 truncate">
                       <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] uppercase ${
-                          riskFilter === 'SEVERE'
+                        className={`px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] uppercase ${riskFilter === 'SEVERE'
                             ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300'
                             : riskFilter === 'HIGH'
-                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/80 dark:text-orange-300'
-                            : riskFilter === 'MODERATE'
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300'
-                            : riskFilter === 'LOW'
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
-                            : 'bg-sky-100 text-sky-700 dark:bg-sky-950/80 dark:text-sky-300'
-                        }`}
+                              ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/80 dark:text-orange-300'
+                              : riskFilter === 'MODERATE'
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300'
+                                : riskFilter === 'LOW'
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                  : 'bg-sky-100 text-sky-700 dark:bg-sky-950/80 dark:text-sky-300'
+                          }`}
                       >
                         {riskFilter}
                       </span>
@@ -346,18 +358,16 @@ export const DashboardPage: React.FC = () => {
                 type="button"
                 onClick={handleStep2Click}
                 disabled={!currentVulnerableWard}
-                className={`relative p-3.5 sm:p-4 rounded-2xl flex items-center space-x-3 text-left transition-all border ${
-                  !currentVulnerableWard
+                className={`relative p-3.5 sm:p-4 rounded-2xl flex items-center space-x-3 text-left transition-all border ${!currentVulnerableWard
                     ? 'bg-slate-50 dark:bg-[#12151f] border-slate-200/60 dark:border-white/[0.04] opacity-50 cursor-default'
                     : activeWorkflowStep === 2 && tempTheme
-                    ? tempTheme.activeContainer
-                    : 'bg-slate-50 dark:bg-[#12151f] hover:bg-slate-100 dark:hover:bg-[#181920] border-slate-200/80 dark:border-white/[0.06] cursor-pointer'
-                }`}
+                      ? tempTheme.activeContainer
+                      : 'bg-slate-50 dark:bg-[#12151f] hover:bg-slate-100 dark:hover:bg-[#181920] border-slate-200/80 dark:border-white/[0.06] cursor-pointer'
+                  }`}
               >
                 <span
-                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl font-mono font-bold text-xs sm:text-sm flex items-center justify-center shrink-0 shadow-sm transition-colors ${
-                    tempTheme ? tempTheme.badgeBg : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
-                  }`}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl font-mono font-bold text-xs sm:text-sm flex items-center justify-center shrink-0 shadow-sm transition-colors ${tempTheme ? tempTheme.badgeBg : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                    }`}
                 >
                   2.
                 </span>
@@ -387,11 +397,10 @@ export const DashboardPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleStep3Click}
-                className={`relative p-3.5 sm:p-4 rounded-2xl flex items-center space-x-3 text-left transition-all cursor-pointer border ${
-                  activeWorkflowStep === 3
+                className={`relative p-3.5 sm:p-4 rounded-2xl flex items-center space-x-3 text-left transition-all cursor-pointer border ${activeWorkflowStep === 3
                     ? 'bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-500/15 dark:to-pink-500/15 border-rose-300 dark:border-rose-500/40 shadow-sm'
                     : 'bg-slate-50 dark:bg-[#12151f] hover:bg-slate-100 dark:hover:bg-[#181920] border-slate-200/80 dark:border-white/[0.06]'
-                }`}
+                  }`}
               >
                 <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-rose-500 text-white font-mono font-bold text-xs sm:text-sm flex items-center justify-center shrink-0 shadow-sm">
                   3.
@@ -426,19 +435,18 @@ export const DashboardPage: React.FC = () => {
                     key={lvl}
                     type="button"
                     onClick={() => setRiskFilter(lvl)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer flex items-center space-x-2 active:scale-95 ${
-                      isSelected
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer flex items-center space-x-2 active:scale-95 ${isSelected
                         ? lvl === 'SEVERE'
                           ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-400/40'
                           : lvl === 'HIGH'
-                          ? 'bg-orange-600 text-white shadow-md ring-2 ring-orange-400/40'
-                          : lvl === 'MODERATE'
-                          ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-400/40'
-                          : lvl === 'LOW'
-                          ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400/40'
-                          : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md ring-2 ring-white/30'
+                            ? 'bg-orange-600 text-white shadow-md ring-2 ring-orange-400/40'
+                            : lvl === 'MODERATE'
+                              ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-400/40'
+                              : lvl === 'LOW'
+                                ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400/40'
+                                : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md ring-2 ring-white/30'
                         : 'bg-white dark:bg-[#12151f] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/[0.08]'
-                    }`}
+                      }`}
                   >
                     <span>{lvl}</span>
                     <span className="text-[11px] font-mono opacity-80">({filterCounts[lvl] ?? 0})</span>
@@ -473,15 +481,14 @@ export const DashboardPage: React.FC = () => {
                         </h4>
                       </div>
                       <span
-                        className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
-                          activeWardRisk === 'SEVERE'
+                        className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${activeWardRisk === 'SEVERE'
                             ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
                             : activeWardRisk === 'HIGH'
-                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
-                            : activeWardRisk === 'MODERATE'
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                        }`}
+                              ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+                              : activeWardRisk === 'MODERATE'
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                          }`}
                       >
                         {activeWardRisk}
                       </span>
@@ -541,11 +548,10 @@ export const DashboardPage: React.FC = () => {
                         setSelectedWard(w);
                         setSelectedLocation(wardToLocationItem(w));
                       }}
-                      className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-mono text-xs transition-all shrink-0 cursor-pointer active:scale-95 ${
-                        activeWard?.id === w.id
+                      className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-mono text-xs transition-all shrink-0 cursor-pointer active:scale-95 ${activeWard?.id === w.id
                           ? 'bg-amber-500 text-white font-bold shadow-sm'
                           : 'bg-white dark:bg-[#161922] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#1f2330] border border-slate-200 dark:border-white/[0.08]'
-                      }`}
+                        }`}
                     >
                       {w.name}
                     </button>
@@ -572,11 +578,10 @@ export const DashboardPage: React.FC = () => {
                         : 'Routine municipal monitoring — safe thermal conditions'}
                     </p>
                   </div>
-                  <span className={`text-[10px] sm:text-[11px] font-mono px-2.5 py-1 rounded-full font-bold shrink-0 ${
-                    activeWardRisk !== 'LOW'
+                  <span className={`text-[10px] sm:text-[11px] font-mono px-2.5 py-1 rounded-full font-bold shrink-0 ${activeWardRisk !== 'LOW'
                       ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300'
                       : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
-                  }`}>
+                    }`}>
                     {activeWardRisk !== 'LOW' ? 'ACTIVE' : 'INACTIVE'}
                   </span>
                 </div>
@@ -604,11 +609,10 @@ export const DashboardPage: React.FC = () => {
                         activeWard &&
                         handleDeployAction(`cooling_bus_${activeWard.id}`, 'Cooling Bus', activeWard)
                       }
-                      className={`px-3.5 py-2 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
-                        dispatchedActions.has(`cooling_bus_${activeWard?.id}`)
+                      className={`px-3.5 py-2 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${dispatchedActions.has(`cooling_bus_${activeWard?.id}`)
                           ? 'bg-emerald-600 text-white cursor-default'
                           : 'bg-rose-600 hover:bg-rose-700 active:scale-95 text-white shadow-sm'
-                      }`}
+                        }`}
                     >
                       {dispatchedActions.has(`cooling_bus_${activeWard?.id}`) ? (
                         <span className="flex items-center space-x-1">
@@ -643,11 +647,10 @@ export const DashboardPage: React.FC = () => {
                         activeWard &&
                         handleDeployAction(`tanker_${activeWard.id}`, 'Water Tanker Unit', activeWard)
                       }
-                      className={`px-3.5 py-2 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${
-                        dispatchedActions.has(`tanker_${activeWard?.id}`)
+                      className={`px-3.5 py-2 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm transition-all shrink-0 cursor-pointer ${dispatchedActions.has(`tanker_${activeWard?.id}`)
                           ? 'bg-emerald-600 text-white cursor-default'
                           : 'bg-amber-600 hover:bg-amber-700 active:scale-95 text-white shadow-sm'
-                      }`}
+                        }`}
                     >
                       {dispatchedActions.has(`tanker_${activeWard?.id}`) ? (
                         <span className="flex items-center space-x-1">
@@ -771,11 +774,10 @@ export const DashboardPage: React.FC = () => {
                           type="button"
                           disabled={isAlreadyDispatched}
                           onClick={() => handleDeployAction(wardKey, `Rapid Unit`, ward)}
-                          className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                            isAlreadyDispatched
+                          className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${isAlreadyDispatched
                               ? 'bg-emerald-600 text-white cursor-default'
                               : 'bg-slate-200 dark:bg-white/[0.08] hover:bg-slate-300 dark:hover:bg-white/[0.15] text-slate-800 dark:text-white border border-slate-300 dark:border-white/10 shadow-sm'
-                          }`}
+                            }`}
                         >
                           {isAlreadyDispatched ? 'Deployed ✓' : 'Deploy'}
                         </button>

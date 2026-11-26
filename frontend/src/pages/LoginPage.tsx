@@ -48,10 +48,19 @@ export const LoginPage: React.FC = () => {
     }
 
     setIsLoading(true);
+
+    // Pre-prompt browser geolocation on password submit
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      try {
+        navigator.geolocation.getCurrentPosition(() => {}, () => {}, { timeout: 3000 });
+      } catch {}
+    }
+
     try {
       await new Promise((r) => setTimeout(r, 450));
       const authEmail = username.includes('@') ? username : `${username}@ndma.gov.in`;
       await login({ email: authEmail, password, officerId: 'NDMA-HQ-2026' });
+      sessionStorage.setItem('just_logged_in_detect_gps', 'true');
       navigate('/dashboard', { replace: true });
     } catch {
       setErrorMessage('Authentication clearance failed. Please re-verify your credentials.');
