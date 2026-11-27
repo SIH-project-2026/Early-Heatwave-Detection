@@ -283,9 +283,6 @@ export const LoginPage: React.FC = () => {
                 <p className="text-[11px] sm:text-xs text-slate-300 font-medium mt-1 leading-snug">
                   Early Warning Authority
                 </p>
-                <p className="text-[10px] text-slate-400 font-mono tracking-wide">
-                  Govt. of India
-                </p>
               </div>
             </div>
 
@@ -513,7 +510,7 @@ export const LoginPage: React.FC = () => {
 
       {/* Bottom Minimal Legal Clearance */}
       <footer className="relative z-10 py-3 text-center text-[10px] text-slate-500 font-mono">
-        Heatwave Early Warning System • Govt. of India
+        Heatwave Early Warning System
       </footer>
     </div>
   );
