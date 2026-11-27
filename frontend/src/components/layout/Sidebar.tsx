@@ -39,8 +39,73 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const navScrollRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
 
   const [sidebarSearch, setSidebarSearch] = useState('');
+
+  // Isolate sidebar wheel/touch scrolling so moving/scrolling cursor in sidebar never scrolls the Command Center
+  useEffect(() => {
+    const asideEl = sidebarRef.current;
+    if (!asideEl) return;
+
+    const canScrollInDirection = (el: HTMLElement, deltaY: number): boolean => {
+      if (el.scrollHeight <= el.clientHeight + 1) return false;
+      if (deltaY < 0) return el.scrollTop > 0;
+      if (deltaY > 0) return el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      return false;
+    };
+
+    const allowNestedScroll = (targetNode: EventTarget | null, deltaY: number): boolean => {
+      const navEl = navScrollRef.current;
+      let current = targetNode as HTMLElement | null;
+      while (current && current !== asideEl) {
+        if (current === navEl) {
+          return canScrollInDirection(current, deltaY);
+        }
+        const style = window.getComputedStyle(current);
+        if (
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          canScrollInDirection(current, deltaY)
+        ) {
+          return true;
+        }
+        current = current.parentElement;
+      }
+      return false;
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!allowNestedScroll(e.target, e.deltaY)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartYRef.current = e.touches[0]?.clientY ?? null;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (touchStartYRef.current === null || !e.touches[0]) return;
+      const deltaY = touchStartYRef.current - e.touches[0].clientY;
+      if (!allowNestedScroll(e.target, deltaY)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    asideEl.addEventListener('wheel', handleWheel, { passive: false });
+    asideEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+    asideEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      asideEl.removeEventListener('wheel', handleWheel);
+      asideEl.removeEventListener('touchstart', handleTouchStart);
+      asideEl.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
 
   const activeAlertsCount = alerts.filter((a) => a.status === 'ACTIVE').length;
 
@@ -256,7 +321,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Main Sidebar Aside Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-[60] lg:z-50 bg-black border-r border-white/[0.06] flex flex-col justify-between transition-[width,transform] duration-250 ease-out select-none font-sans shadow-2xl ${
+        ref={sidebarRef}
+        className={`fixed top-0 bottom-0 left-0 z-[60] lg:z-50 bg-black border-r border-white/[0.06] flex flex-col justify-between transition-[width,transform] duration-250 ease-out select-none font-sans shadow-2xl overscroll-contain ${
           isCollapsed ? 'w-16' : 'w-64 lg:w-72 xl:w-72'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
@@ -306,7 +372,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Scrollable Nav Content */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden py-3.5 space-y-4 sm:space-y-4.5 scrollbar-none">
+        <div
+          ref={navScrollRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden py-3.5 space-y-4 sm:space-y-4.5 scrollbar-none overscroll-contain"
+        >
           {/* Search Box Input (with ⌘K Badge) */}
           {!isCollapsed ? (
             <div className="px-3 pb-0.5">
