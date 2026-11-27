@@ -11,7 +11,7 @@ import { wardService } from '../services/wardService';
 import { weatherService } from '../services/weatherService';
 import { resourceService } from '../services/resourceService';
 import { alertService } from '../services/alertService';
-import { wardToLocationItem, enrichLocationWithLiveWeather, KNOWN_INDIAN_LOCATIONS } from '../services/locationService';
+import { wardToLocationItem, enrichLocationWithLiveWeather, KNOWN_INDIAN_LOCATIONS, detectLiveUserLocation } from '../services/locationService';
 import { fetchLiveWeatherForCoords } from '../services/liveWeatherService';
 
 interface HeatwaveContextType {
@@ -44,6 +44,7 @@ interface HeatwaveContextType {
   resolveAlert: (id: string) => Promise<void>;
   sendBroadcastAlert: (payload: any) => Promise<any>;
   refreshData: () => Promise<void>;
+  detectAndApplyUserLocation: () => Promise<boolean>;
 }
 
 const HeatwaveContext = createContext<HeatwaveContextType | undefined>(undefined);
@@ -57,10 +58,14 @@ const STORAGE_KEYS = {
 
 function sanitizeRegion(region: MunicipalRegion): MunicipalRegion {
   if (!region || !region.name) return region;
+  // If region was searched or created by user, preserve user-selected coordinates
+  if (region.isCustom || region.id?.startsWith('custom-')) {
+    return region;
+  }
   const norm = region.name.toLowerCase().replace(/[^a-z0-9]/g, '');
   const known =
     KNOWN_INDIAN_LOCATIONS[norm] ||
-    Object.entries(KNOWN_INDIAN_LOCATIONS).find(([k]) => norm.includes(k) || k.includes(norm))?.[1];
+    Object.entries(KNOWN_INDIAN_LOCATIONS).find(([k]) => k.length >= 4 && norm === k)?.[1];
 
   if (known) {
     const distLng = Math.abs(region.coordinates[0] - known.lng);
@@ -561,6 +566,46 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return await alertService.sendBroadcastAlert(payload);
   }, []);
 
+  const detectAndApplyUserLocation = useCallback(async (): Promise<boolean> => {
+    try {
+      const detected = await detectLiveUserLocation();
+      if (!detected) return false;
+
+      const rawCity = (detected.name || 'Local').trim();
+      const cleanCity = rawCity
+        .replace(/\s+Metropolitan\s+Area/i, '')
+        .replace(/\s+Area/i, '')
+        .trim();
+      const regionName = `${cleanCity} Metropolitan Area`;
+
+      const detectedRegion: MunicipalRegion = {
+        id: `gps-${cleanCity.toLowerCase().replace(/[^a-z0-9]/g, '')}-${detected.lat.toFixed(2)}-${detected.lng.toFixed(2)}`,
+        name: regionName,
+        state: detected.state,
+        coordinates: [detected.lng, detected.lat],
+        zoom: 12,
+        riskStatus: 'MODERATE',
+        description: `Live detected location: ${cleanCity}, ${detected.state} (${detected.lat.toFixed(4)}°N, ${detected.lng.toFixed(4)}°E)`,
+        isCustom: true,
+        savedAt: new Date().toISOString(),
+      };
+
+      saveCustomRegion(detectedRegion);
+      setActiveRegionState(detectedRegion);
+      try {
+        localStorage.setItem(STORAGE_KEYS.REGION, JSON.stringify(detectedRegion));
+        localStorage.removeItem(STORAGE_KEYS.WARD_ID);
+        localStorage.removeItem(STORAGE_KEYS.LOCATION);
+      } catch {}
+
+      await loadRegionData(detectedRegion);
+      return true;
+    } catch (err) {
+      console.warn('Could not auto-apply detected user location:', err);
+      return false;
+    }
+  }, [loadRegionData]);
+
   const value = useMemo(
     () => ({
       wards,
@@ -591,6 +636,7 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       resolveAlert,
       sendBroadcastAlert,
       refreshData,
+      detectAndApplyUserLocation,
     }),
     [
       wards,
@@ -621,6 +667,7 @@ export const HeatwaveProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       resolveAlert,
       sendBroadcastAlert,
       refreshData,
+      detectAndApplyUserLocation,
     ]
   );
 

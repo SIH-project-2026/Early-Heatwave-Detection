@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Maximize2,
   Minimize2,
+  ArrowLeft,
 } from 'lucide-react';
 
 export interface SupportedLanguage {
@@ -313,6 +314,9 @@ export const AgentChat: React.FC = () => {
   };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const modalOverlayRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
@@ -408,12 +412,96 @@ export const AgentChat: React.FC = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const chatEl = chatScrollRef.current;
+    if (!chatEl) return;
+    if (chatEl.scrollHeight > chatEl.clientHeight + 1) {
+      chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' });
+    }
   };
 
   useEffect(() => {
-    if (isAgentChatOpen) scrollToBottom();
-  }, [messages, isAgentChatOpen]);
+    if (isAgentChatOpen && (messages.length > 1 || loading)) {
+      scrollToBottom();
+    }
+  }, [messages, loading, isAgentChatOpen]);
+
+  // Lock background page scroll and block wheel/touch scroll chaining when there is no overflow
+  useEffect(() => {
+    if (!isAgentChatOpen) return;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    const overlayEl = modalOverlayRef.current;
+
+    const canScrollY = (el: HTMLElement, deltaY: number): boolean => {
+      if (el.scrollHeight <= el.clientHeight + 1) return false;
+      if (deltaY < 0) return el.scrollTop > 0;
+      if (deltaY > 0) return el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      return false;
+    };
+
+    const allowNestedScroll = (targetNode: EventTarget | null, deltaY: number, deltaX: number): boolean => {
+      if (!overlayEl) return false;
+      let current = targetNode as HTMLElement | null;
+      while (current && current !== overlayEl) {
+        const style = window.getComputedStyle(current);
+        if (
+          Math.abs(deltaX) > Math.abs(deltaY) &&
+          (style.overflowX === 'auto' || style.overflowX === 'scroll') &&
+          current.scrollWidth > current.clientWidth + 1
+        ) {
+          return true;
+        }
+        if (
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          canScrollY(current, deltaY)
+        ) {
+          return true;
+        }
+        current = current.parentElement;
+      }
+      return false;
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!allowNestedScroll(e.target, e.deltaY, e.deltaX)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartYRef.current = e.touches[0]?.clientY ?? null;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (touchStartYRef.current === null || !e.touches[0]) return;
+      const deltaY = touchStartYRef.current - e.touches[0].clientY;
+      if (!allowNestedScroll(e.target, deltaY, 0)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    if (overlayEl) {
+      overlayEl.addEventListener('wheel', handleWheel, { passive: false });
+      overlayEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+      overlayEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    }
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      if (overlayEl) {
+        overlayEl.removeEventListener('wheel', handleWheel);
+        overlayEl.removeEventListener('touchstart', handleTouchStart);
+        overlayEl.removeEventListener('touchmove', handleTouchMove);
+      }
+    };
+  }, [isAgentChatOpen]);
 
   // Sync pinned coords when active region changes
   useEffect(() => {
@@ -687,7 +775,8 @@ export const AgentChat: React.FC = () => {
       {/* Interactive Responsive Chat Modal / Drawer */}
       {isAgentChatOpen && (
         <div
-          className={`fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 backdrop-blur-xl animate-in fade-in duration-150 select-none font-sans ${
+          ref={modalOverlayRef}
+          className={`fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 backdrop-blur-xl animate-in fade-in duration-150 select-none font-sans overscroll-contain ${
             isFullscreen ? 'p-0 sm:p-2.5 md:p-4' : 'p-3 sm:p-4'
           }`}
         >
@@ -699,17 +788,27 @@ export const AgentChat: React.FC = () => {
             }`}
           >
             {/* Modal Header */}
-            <div className="p-3.5 sm:p-4 bg-[#08090c] border-b border-white/[0.06] flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400 shadow-md">
+            <div className="p-3.5 sm:p-4 bg-[#08090c] border-b border-white/[0.06] flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setIsAgentChatOpen(false)}
+                  className="px-2.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/[0.08] text-xs font-semibold flex items-center space-x-1 transition-all cursor-pointer shrink-0"
+                  title={selectedLanguage === 'hi' ? 'वापस जाएं' : 'Back'}
+                  aria-label="Back"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>{selectedLanguage === 'hi' ? 'वापस' : 'Back'}</span>
+                </button>
+                <div className="hidden sm:flex p-2.5 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400 shadow-md shrink-0">
                   <Bot className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                <div className="min-w-0">
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider truncate">
                       {selectedLanguage === 'hi' ? 'रीयल-टाइम मौसम एआई सहायक' : 'Real-Time Weather AI Assistant'}
                     </h3>
-                    <span className="px-2 py-0.5 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    <span className="hidden md:inline-block px-2 py-0.5 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
                       {selectedLanguage === 'hi' ? 'लाइव सहायक' : 'LIVE AGENT'}
                     </span>
                   </div>
@@ -816,7 +915,10 @@ export const AgentChat: React.FC = () => {
             </div>
 
             {/* Chat Messages Body */}
-            <div className="flex-1 p-3.5 sm:p-6 bg-black overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-slate-800">
+            <div
+              ref={chatScrollRef}
+              className="flex-1 p-3.5 sm:p-6 bg-black overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-slate-800 overscroll-contain"
+            >
               <div className={`space-y-4 w-full ${isFullscreen ? 'max-w-4xl mx-auto' : ''}`}>
               {messages.map((msg) => (
                 <div

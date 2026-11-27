@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiClient } from '../services/api';
 
 export type OfficerRoleType = 'controller' | 'disaster_officer' | 'field_lead';
 
@@ -48,7 +49,8 @@ const STORAGE_KEY = 'meridian_auth_user';
 interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
-  login: (credentials: { email: string; password?: string; officerId?: string }) => Promise<void>;
+  login: (credentials: { email: string; password?: string; officerId?: string; username?: string }) => Promise<void>;
+  register: (credentials: { username: string; password: string; email?: string; officerId?: string }) => Promise<void>;
   demoLogin: (roleKey: OfficerRoleType) => void;
   logout: () => void;
 }
@@ -61,29 +63,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const saved = localStorage.getItem(STORAGE_KEY);
       if (!saved) return null;
       const parsed = JSON.parse(saved);
-      // Auto-migrate initials to HW
-      if (parsed.initials !== 'HW') {
-        parsed.initials = 'HW';
+      if (parsed && parsed.email && parsed.id) {
+        return parsed;
       }
-      if (!parsed.name || parsed.name.includes('National Disaster') || parsed.name.includes('NDMA') || parsed.name === 'Dana Castellanos') {
-        parsed.name = 'HeatWave Commander';
-      }
-      if (!parsed.role || parsed.role.includes('NDMA')) {
-        parsed.role = 'Operations Commander';
-      }
-      if (parsed.clearanceLevel && (parsed.clearanceLevel.includes('L5') || parsed.clearanceLevel.includes('NDMA'))) {
-        parsed.clearanceLevel = 'National Supreme Clearance';
-      }
-      if (parsed.officerId && parsed.officerId.startsWith('NDMA')) {
-        parsed.officerId = 'HW-HQ-2026';
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      // Auto-migrate legacy personas
-      if (parsed.id !== 'ndma-hq-01') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(NDMA_USER));
-        return NDMA_USER;
-      }
-      return parsed;
+      return null;
     } catch {
       return null;
     }
@@ -101,13 +84,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const login = async (credentials: { email: string; password?: string; officerId?: string }) => {
-    const customUser: UserProfile = {
-      ...NDMA_USER,
-      email: credentials.email.trim() || NDMA_USER.email,
-      officerId: credentials.officerId?.trim() || NDMA_USER.officerId,
-    };
-    setUser(customUser);
+  const login = async (credentials: { email: string; password?: string; officerId?: string; username?: string }) => {
+    const usernameInput = (credentials.username || credentials.email || '').trim();
+    const res = await apiClient.post(
+      '/auth/login',
+      {
+        username: usernameInput,
+        password: credentials.password || '',
+        email: credentials.email,
+        officerId: credentials.officerId,
+      },
+      { timeout: 45000 }
+    );
+    if (res.data?.token) {
+      localStorage.setItem('sih_auth_token', res.data.token);
+    }
+    if (res.data?.user) {
+      setUser(res.data.user);
+      return;
+    }
+    throw new Error('Authentication failed.');
+  };
+
+  const register = async (credentials: { username: string; password: string; email?: string; officerId?: string }) => {
+    const res = await apiClient.post(
+      '/auth/register',
+      {
+        username: credentials.username.trim(),
+        password: credentials.password,
+        email: credentials.email,
+        officerId: credentials.officerId,
+      },
+      { timeout: 45000 }
+    );
+    if (res.data?.token) {
+      localStorage.setItem('sih_auth_token', res.data.token);
+    }
+    if (res.data?.user) {
+      setUser(res.data.user);
+      return;
+    }
+    throw new Error('Registration failed.');
   };
 
   const demoLogin = (_roleKey?: OfficerRoleType) => {
@@ -117,6 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('sih_auth_token');
   };
 
   return (
@@ -125,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: !!user,
         login,
+        register,
         demoLogin,
         logout,
       }}

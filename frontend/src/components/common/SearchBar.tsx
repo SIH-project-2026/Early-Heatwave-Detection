@@ -49,6 +49,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodeFeedback, setGeocodeFeedback] = useState<string | null>(null);
   const [activeFilterTab, setActiveFilterTab] = useState<'ALL' | 'REGIONS' | 'WARDS' | 'RESOURCES'>('ALL');
   const [allRegions, setAllRegions] = useState<MunicipalRegion[]>(getAllRegions);
 
@@ -192,7 +193,21 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const handleCustomGeocodeSearch = async () => {
     if (!query || query.length < 2 || isGeocoding) return;
     setIsGeocoding(true);
+    setGeocodeFeedback(null);
     try {
+      // 1. Check if query matches an existing region
+      const existing = allRegions.find(
+        (r) =>
+          r.name.toLowerCase() === query ||
+          r.id.toLowerCase() === query ||
+          r.name.toLowerCase().startsWith(query)
+      );
+      if (existing) {
+        handleSelectRegion(existing);
+        return;
+      }
+
+      // 2. Otherwise geocode satellite coordinates
       const geo = await searchCityCoordinates(query);
       if (geo) {
         const newRegion = createCustomRegion(
@@ -203,12 +218,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           'HIGH'
         );
         const saved = saveCustomRegion(newRegion);
-        setActiveRegion(saved);
+        await setActiveRegion(saved);
         setSearchQuery('');
         setIsOpen(false);
         if (onCloseMobileDrawer) onCloseMobileDrawer();
         navigate(`/map?region=${saved.id}`);
+      } else {
+        setGeocodeFeedback(`Could not find "${query}". Please check city spelling.`);
+        setTimeout(() => setGeocodeFeedback(null), 4000);
       }
+    } catch {
+      setGeocodeFeedback('Failed to resolve coordinates. Please try again.');
+      setTimeout(() => setGeocodeFeedback(null), 4000);
     } finally {
       setIsGeocoding(false);
     }
@@ -504,6 +525,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Geocode feedback error or status notification */}
+        {geocodeFeedback && (
+          <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-between">
+            <span>{geocodeFeedback}</span>
+            <button
+              type="button"
+              onClick={() => setGeocodeFeedback(null)}
+              className="text-slate-400 hover:text-white ml-2"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 

@@ -7,9 +7,11 @@ import { LocationDetails } from '../components/ward/WardDetailsPanel';
 import { RiskBadge } from '../components/common/RiskBadge';
 import { RegionSelector } from '../components/common/RegionSelector';
 import { AlertModal } from '../components/alerts/AlertModal';
-import { wardToLocationItem } from '../services/locationService';
+import { wardToLocationItem, searchCityCoordinates } from '../services/locationService';
+import { getAllRegions, saveCustomRegion } from '../services/regionStorageService';
+import { createCustomRegion } from '../types/region';
 import type { Ward } from '../types/ward';
-import { Search, MapPin, Layers, Sparkles, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { Search, MapPin, Layers, Sparkles, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, X, Loader2, ArrowRight } from 'lucide-react';
 
 export const MapPage: React.FC = () => {
   const { user } = useAuth();
@@ -33,6 +35,70 @@ export const MapPage: React.FC = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [alertModalWard, setAlertModalWard] = useState<Ward | null>(null);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [searchFeedback, setSearchFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Search and switch to any newly searched location across India
+  const handleSearchLocation = async (rawQuery: string) => {
+    const q = rawQuery.trim();
+    if (!q || q.length < 2 || isSearchingLocation) return;
+    setIsSearchingLocation(true);
+    setSearchFeedback(null);
+    try {
+      // 1. Check if user typed an existing region name
+      const existing = getAllRegions().find(
+        (r) =>
+          r.name.toLowerCase() === q.toLowerCase() ||
+          r.id.toLowerCase() === q.toLowerCase() ||
+          r.name.toLowerCase().startsWith(q.toLowerCase())
+      );
+      if (existing) {
+        await setActiveRegion(existing);
+        setSearchQuery('');
+        setSearchFeedback({
+          type: 'success',
+          message: `✓ Switched to ${existing.name}!`,
+        });
+        setTimeout(() => setSearchFeedback(null), 3500);
+        return;
+      }
+
+      // 2. Otherwise geocode newly searched city/town coordinates
+      const geo = await searchCityCoordinates(q);
+      if (geo) {
+        const newRegion = createCustomRegion(
+          geo.name,
+          geo.state || 'Searched Location',
+          geo.lat,
+          geo.lng,
+          'HIGH'
+        );
+        const saved = saveCustomRegion(newRegion);
+        await setActiveRegion(saved);
+        setSearchQuery('');
+        setSearchFeedback({
+          type: 'success',
+          message: `✓ Located & switched live telemetry to ${geo.name}${geo.state ? `, ${geo.state}` : ''}!`,
+        });
+        setTimeout(() => setSearchFeedback(null), 3500);
+      } else {
+        setSearchFeedback({
+          type: 'error',
+          message: `❌ Could not find "${q}". Please check city/town spelling.`,
+        });
+        setTimeout(() => setSearchFeedback(null), 4000);
+      }
+    } catch (err) {
+      console.error('Error searching location in MapPage:', err);
+      setSearchFeedback({
+        type: 'error',
+        message: '❌ Failed to resolve location. Please try again.',
+      });
+      setTimeout(() => setSearchFeedback(null), 4000);
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
 
   // Role metadata configurations
   const roleMeta = {
@@ -152,26 +218,61 @@ export const MapPage: React.FC = () => {
 
         {/* Tier 2: Responsive Ward Search Box & Color-Coded Risk Level Pills */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2.5 border-t border-white/[0.05]">
-          {/* Ward Search Input with Clear Button */}
-          <div className="relative w-full md:w-72 lg:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5 pointer-events-none" />
+          {/* Ward Search Input with Clear & Direct Search Button */}
+          <div className="relative w-full md:w-80 lg:w-96">
+            {isSearchingLocation ? (
+              <Loader2 className="w-4 h-4 text-sky-400 absolute left-3.5 top-2.5 animate-spin pointer-events-none" />
+            ) : (
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5 pointer-events-none" />
+            )}
             <input
               type="text"
-              placeholder={t('searchWardPlaceholder', 'Search ward name, code or zone...')}
+              placeholder={t('searchWardPlaceholder', 'Search ward, city or region across India...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-9 py-2 bg-[#13141a] border border-white/[0.08] focus:border-sky-500/60 focus:bg-[#161720] rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none w-full font-sans transition-all shadow-inner"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchQuery.trim().length >= 2) {
+                  if (filteredWards.length === 1) {
+                    setSelectedWard(filteredWards[0]);
+                    setSelectedLocation(wardToLocationItem(filteredWards[0]));
+                  } else {
+                    handleSearchLocation(searchQuery);
+                  }
+                }
+              }}
+              className="pl-10 pr-24 py-2 bg-[#13141a] border border-white/[0.08] focus:border-sky-500/60 focus:bg-[#161720] rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none w-full font-sans transition-all shadow-inner"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
-                title="Clear ward search"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+            <div className="absolute right-2 top-1.5 flex items-center space-x-1">
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchFeedback(null);
+                  }}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {searchQuery.trim().length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => handleSearchLocation(searchQuery)}
+                  disabled={isSearchingLocation}
+                  className="px-2 py-0.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-[10px] font-bold flex items-center space-x-1 cursor-pointer transition-all disabled:opacity-50"
+                  title={`Search "${searchQuery}" and switch location`}
+                >
+                  {isSearchingLocation ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-sky-400" />
+                  ) : (
+                    <ArrowRight className="w-3 h-3 text-sky-300" />
+                  )}
+                  <span className="hidden sm:inline">Search</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Risk Level Filter Pills with Color Coding */}
@@ -215,6 +316,33 @@ export const MapPage: React.FC = () => {
             })}
           </div>
         </div>
+
+        {/* Responsive Location Search Feedback Toast */}
+        {searchFeedback && (
+          <div
+            className={`p-2.5 px-3.5 rounded-2xl text-xs font-semibold flex items-center justify-between transition-all ${
+              searchFeedback.type === 'success'
+                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                : 'bg-rose-500/15 border border-rose-500/30 text-rose-300'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              {searchFeedback.type === 'success' ? (
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              ) : (
+                <X className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              )}
+              <span>{searchFeedback.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSearchFeedback(null)}
+              className="text-slate-400 hover:text-white ml-2 p-0.5 rounded-lg hover:bg-white/[0.06]"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Map Workstation Grid */}
@@ -240,9 +368,39 @@ export const MapPage: React.FC = () => {
 
               <div className="space-y-2">
                 {filteredWards.length === 0 ? (
-                  <div className="p-4 text-center rounded-2xl bg-[#13141a] border border-white/[0.04] text-slate-400 font-mono text-xs">
-                    No wards match '{riskFilter}' risk filter
-                  </div>
+                  searchQuery.trim().length >= 2 ? (
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-sky-500/15 via-indigo-500/10 to-transparent border border-sky-500/30 text-white space-y-2">
+                      <div className="flex items-center space-x-2 text-sky-300 font-semibold text-xs">
+                        <Sparkles className="w-4 h-4 text-sky-400" />
+                        <span>Search & Switch Location</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300">
+                        No local wards match &ldquo;{searchQuery}&rdquo; in {activeRegion.name}. Switch live map to &ldquo;{searchQuery}&rdquo;:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleSearchLocation(searchQuery)}
+                        disabled={isSearchingLocation}
+                        className="w-full py-2 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-lg shadow-sky-500/25 active:scale-95 disabled:opacity-60"
+                      >
+                        {isSearchingLocation ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Locating &ldquo;{searchQuery}&rdquo;...</span>
+                          </>
+                        ) : (
+                          <>
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>Fly Map to &ldquo;{searchQuery}&rdquo;</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center rounded-2xl bg-[#13141a] border border-white/[0.04] text-slate-400 font-mono text-xs">
+                      No wards match '{riskFilter}' risk filter
+                    </div>
+                  )
                 ) : (
                   filteredWards.map((w) => {
                   const isSelected =

@@ -27,7 +27,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [77.110, 28.540],
     zoom: 11,
     description: 'Delhi-Gurgaon Capital Region thermal observation zone',
-    riskStatus: 'MODERATE',
+    riskStatus: 'HIGH',
   },
   {
     id: 'gurgaon',
@@ -36,7 +36,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [77.0266, 28.4595],
     zoom: 12,
     description: 'Cyber City, Sohna Valley, MG Road & Manesar Industrial telemetry',
-    riskStatus: 'MODERATE',
+    riskStatus: 'HIGH',
   },
   {
     id: 'sohna-gurgaon',
@@ -54,7 +54,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [77.209, 28.613],
     zoom: 11.5,
     description: 'Connaught Place, Karol Bagh & Shahdara zone',
-    riskStatus: 'MODERATE',
+    riskStatus: 'HIGH',
   },
   {
     id: 'nagpur',
@@ -63,7 +63,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [79.088, 21.145],
     zoom: 12,
     description: 'Central India high-resolution ward telemetry zone',
-    riskStatus: 'MODERATE',
+    riskStatus: 'SEVERE',
   },
   {
     id: 'mumbai',
@@ -81,7 +81,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [72.571, 23.022],
     zoom: 11.5,
     description: 'Western semi-arid heat stress action plan zone',
-    riskStatus: 'MODERATE',
+    riskStatus: 'HIGH',
   },
   {
     id: 'pune',
@@ -99,7 +99,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [75.787, 26.912],
     zoom: 11.5,
     description: 'Thar fringe temperature monitoring zone',
-    riskStatus: 'MODERATE',
+    riskStatus: 'HIGH',
   },
   {
     id: 'kolkata',
@@ -144,7 +144,7 @@ export const MUNICIPAL_REGIONS: MunicipalRegion[] = [
     coordinates: [80.9462, 26.8467],
     zoom: 12,
     description: 'Central UP Gangetic plain heat monitoring',
-    riskStatus: 'MODERATE',
+    riskStatus: 'HIGH',
   },
   {
     id: 'surat',

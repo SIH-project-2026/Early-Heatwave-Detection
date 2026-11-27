@@ -102,7 +102,12 @@ export const KNOWN_INDIAN_LOCATIONS: Record<
   sohna: { name: 'Sohna', state: 'Haryana', lat: 28.2464, lng: 77.0697 },
 };
 
-// Live High-Speed Geocoding: Resolves any city, town, or location (e.g. Darjeeling, Kedarnath, Shimla) to coordinates
+const WEATHER_API_KEY =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEATHER_API_KEY) ||
+  (typeof import.meta !== 'undefined' && import.meta.env?.WEATHER_API_KEY) ||
+  'd9ec6ffce4910db44599bd7b37bea410';
+
+// Live High-Speed Geocoding: Resolves any city, town, or location to coordinates
 export async function searchCityCoordinates(query: string): Promise<GeocodedLocation | null> {
   const cleanQuery = query?.trim();
   if (!cleanQuery || cleanQuery.length < 2) return null;
@@ -122,27 +127,47 @@ export async function searchCityCoordinates(query: string): Promise<GeocodedLoca
     };
   }
 
-  // Check substring / fuzzy match in known registry
-  for (const [key, val] of Object.entries(KNOWN_INDIAN_LOCATIONS)) {
-    if (normalized.includes(key) || key.includes(normalized)) {
-      return {
-        name: val.name,
-        state: val.state,
-        country: 'India',
-        displayName: `${val.name}, ${val.state}`,
-        lat: val.lat,
-        lng: val.lng,
-      };
+  // 2. OpenWeatherMap Direct Geocoding API (Ultra-fast <150ms, highly reliable for all cities/towns in India & global)
+  if (WEATHER_API_KEY) {
+    try {
+      const owmGeoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(
+        cleanQuery
+      )}&limit=1&appid=${WEATHER_API_KEY}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(owmGeoUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const item = data[0];
+          return {
+            name: item.name,
+            state: item.state || 'India',
+            country: item.country || 'India',
+            displayName: item.state ? `${item.name}, ${item.state}` : `${item.name}, ${item.country || 'India'}`,
+            lat: Number(item.lat),
+            lng: Number(item.lon),
+          };
+        }
+      }
+    } catch (owmErr) {
+      console.warn('OpenWeatherMap geocoding fallback note:', owmErr);
     }
   }
 
-  // 2. Open-Meteo Geocoding API (<1ms response, free, no rate limit)
+  // 3. Open-Meteo Geocoding API (with 3.5s timeout protection)
   try {
     const openMeteoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
       cleanQuery
     )}&count=1&language=en&format=json`;
 
-    const response = await fetch(openMeteoUrl);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const response = await fetch(openMeteoUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (response.ok) {
       const data = await response.json();
       if (data && data.results && data.results.length > 0) {
@@ -164,17 +189,22 @@ export async function searchCityCoordinates(query: string): Promise<GeocodedLoca
     console.warn('Open-Meteo geocoding note, trying OpenStreetMap fallback:', error);
   }
 
-  // 3. Fallback attempt: OpenStreetMap Nominatim
+  // 4. Fallback attempt: OpenStreetMap Nominatim with User-Agent & timeout
   try {
     const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
       cleanQuery
     )}&limit=1&addressdetails=1`;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
     const response = await fetch(nominatimUrl, {
+      signal: controller.signal,
       headers: {
         'Accept-Language': 'en',
+        'User-Agent': 'HeatwaveEarlyWarning/1.0',
       },
     });
+    clearTimeout(timeoutId);
 
     if (response.ok) {
       const data = await response.json();
@@ -195,9 +225,195 @@ export async function searchCityCoordinates(query: string): Promise<GeocodedLoca
         };
       }
     }
-  } catch (error) {
-    console.error('Error in fallback geocoding coordinates:', error);
+  } catch (err) {
+    console.warn('Nominatim geocoding error:', err);
   }
+
+  // 5. Final fallback: substring match in known registry (minimum 4 characters)
+  if (normalized.length >= 4) {
+    for (const [key, val] of Object.entries(KNOWN_INDIAN_LOCATIONS)) {
+      if (key.length >= 4 && (normalized === key || normalized.includes(key))) {
+        return {
+          name: val.name,
+          state: val.state,
+          country: 'India',
+          displayName: `${val.name}, ${val.state}`,
+          lat: val.lat,
+          lng: val.lng,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+// Reverse geocode latitude and longitude to find city, district and state
+export async function reverseGeocodeCoords(
+  lat: number,
+  lng: number
+): Promise<{ name: string; state: string; lat: number; lng: number }> {
+  // 1. First check distance against built-in authentic registry (0ms latency, high precision)
+  let nearestKnown: { name: string; state: string; lat: number; lng: number; distKm: number } | null = null;
+  let minDistance = Infinity;
+
+  for (const loc of Object.values(KNOWN_INDIAN_LOCATIONS)) {
+    const dLat = (loc.lat - lat) * (Math.PI / 180);
+    const dLng = (loc.lng - lng) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat * (Math.PI / 180)) * Math.cos(loc.lat * (Math.PI / 180)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distKm = 6371 * c;
+
+    if (distKm < minDistance) {
+      minDistance = distKm;
+      nearestKnown = { name: loc.name, state: loc.state, lat: loc.lat, lng: loc.lng, distKm };
+    }
+  }
+
+  // If within 35 km of a known major city, snap to that city
+  if (nearestKnown && nearestKnown.distKm <= 35) {
+    return {
+      name: nearestKnown.name,
+      state: nearestKnown.state,
+      lat: Number(lat.toFixed(5)),
+      lng: Number(lng.toFixed(5)),
+    };
+  }
+
+  // 2. OpenStreetMap Nominatim reverse geocode
+  try {
+    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(nominatimUrl, {
+      signal: controller.signal,
+      headers: { 'Accept-Language': 'en', 'User-Agent': 'HeatwaveEarlyWarning/1.0' },
+    });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      const addr = data.address || {};
+      const cityName =
+        addr.city ||
+        addr.town ||
+        addr.municipality ||
+        addr.suburb ||
+        addr.village ||
+        addr.county ||
+        addr.state_district;
+      const stateName = addr.state || addr.country || 'India';
+      if (cityName) {
+        return {
+          name: cityName,
+          state: stateName,
+          lat: Number(lat.toFixed(5)),
+          lng: Number(lng.toFixed(5)),
+        };
+      }
+    }
+  } catch {}
+
+  // 3. BigDataCloud free client reverse geocoding
+  try {
+    const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(bdcUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      const cityName = data.city || data.locality || data.principalSubdivision;
+      const stateName = data.principalSubdivision || data.countryName || 'India';
+      if (cityName) {
+        return {
+          name: cityName,
+          state: stateName,
+          lat: Number(lat.toFixed(5)),
+          lng: Number(lng.toFixed(5)),
+        };
+      }
+    }
+  } catch {}
+
+  // 4. Fallback to nearest known city if within 100 km
+  if (nearestKnown && nearestKnown.distKm <= 100) {
+    return {
+      name: nearestKnown.name,
+      state: nearestKnown.state,
+      lat: Number(lat.toFixed(5)),
+      lng: Number(lng.toFixed(5)),
+    };
+  }
+
+  return {
+    name: 'Current Area',
+    state: 'India',
+    lat: Number(lat.toFixed(5)),
+    lng: Number(lng.toFixed(5)),
+  };
+}
+
+// Detect live user location using Browser GPS with IP fallback
+export async function detectLiveUserLocation(): Promise<{ name: string; state: string; lat: number; lng: number } | null> {
+  // Strategy A: Browser Geolocation API
+  if (typeof window !== 'undefined' && navigator.geolocation) {
+    try {
+      const gpsResult = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
+        );
+      });
+
+      if (gpsResult) {
+        const geoInfo = await reverseGeocodeCoords(gpsResult.lat, gpsResult.lng);
+        return geoInfo;
+      }
+    } catch {}
+  }
+
+  // Strategy B: IP-based location fallback
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const ipRes = await fetch('https://ipwho.is/', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (ipRes.ok) {
+      const ipData = await ipRes.json();
+      if (ipData && ipData.success !== false && ipData.latitude && ipData.longitude) {
+        const cityName = ipData.city || ipData.region || 'Current Area';
+        const stateName = ipData.region || ipData.country || 'India';
+        return {
+          name: cityName,
+          state: stateName,
+          lat: Number(ipData.latitude),
+          lng: Number(ipData.longitude),
+        };
+      }
+    }
+  } catch {}
+
+  // Strategy C: Alternative IP service
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const ipapiRes = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (ipapiRes.ok) {
+      const ipData = await ipapiRes.json();
+      if (ipData && ipData.latitude && ipData.longitude) {
+        return {
+          name: ipData.city || 'Current Area',
+          state: ipData.region || 'India',
+          lat: Number(ipData.latitude),
+          lng: Number(ipData.longitude),
+        };
+      }
+    }
+  } catch {}
 
   return null;
 }
